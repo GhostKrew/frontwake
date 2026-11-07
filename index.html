@@ -237,13 +237,7 @@ details.howto ul.how li+li{margin-top:6px}
 .map .pic{border-radius:6px}
 .map:not(:disabled):hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--gold) 50%,var(--line));filter:none}
 .card h1{letter-spacing:.03em}
-.donate{display:flex;align-items:center;justify-content:center;gap:12px;text-decoration:none;color:#2a0d12;cursor:pointer;
-  background:linear-gradient(180deg,#f47a8a,#e2566b);border:1px solid #f08a98;border-radius:12px;padding:12px 16px;box-shadow:0 8px 20px -10px rgba(226,86,107,.8);transition:transform .15s,filter .15s}
-.donate:hover{transform:translateY(-1px);filter:brightness(1.06)}
-.donate svg{width:26px;height:26px;color:#fff;flex:none}
-.donate span{display:flex;flex-direction:column;gap:1px}
-.donate b{font-size:17px;letter-spacing:.08em;text-transform:uppercase;color:#fff}
-.donate small{font-size:13px;color:#ffe7ea}
+
 label.chk{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--sea);cursor:pointer}
 label.chk input{width:20px;height:20px;margin:2px 0 0;accent-color:var(--gold);flex:none}
 label.chk span{display:flex;flex-direction:column;gap:2px}
@@ -1724,11 +1718,6 @@ function wireIdentity(){
   hx.onchange=()=>{let v=hx.value.trim();if(!v.startsWith('#'))v='#'+v;if(COLOR_OK.test(v))apply(v);else hx.value=myColor};
   $('cdef').onclick=()=>apply(DEFAULT_COLOR);
   apply(myColor)}
-// ---------- donate button on the home screen ----------
-// The link comes from window.FW_DONATE (set in the site file): a Ko-fi, PayPal, Buy Me a Coffee or similar page.
-function wireDonate(){const a=$('donate');if(!a)return;const url=String(window.FW_DONATE||'');
-  if(/^https:\/\//.test(url)){a.href=url}else{a.removeAttribute('href');a.setAttribute('role','button');a.tabIndex=0;
-    const say=()=>toast('Donations aren’t set up yet. Check back soon!');a.onclick=say;a.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();say()}}}}
 function showMenu(){
   endTut();
   $('exitBtn').hidden=true;
@@ -1758,10 +1747,9 @@ function showMenu(){
   <li>Right-click the sea to build warships (needs a port) or oil rigs. Right-click enemy land for troop planes and bomber strikes (airport) or bombs (silo).</li>
   <li>Right-click another realm to propose an alliance. Allies can’t attack each other, can send each other gold and troops, and earn more from trade.</li>
   <li>Hold 70% of the land, or be the last realm (or alliance) standing.</li></ul></details>
-  <a class="donate" id="donate" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.7 4.5c2.1 0 3.6 1.2 5.3 3.2 1.7-2 3.2-3.2 5.3-3.2 3.7 0 5.8 3.9 4.3 7.3C19.5 16.4 12 21 12 21z" fill="currentColor"/></svg><span><b>Donate</b><small>Help keep Frontwake free and growing</small></span></a>
   <div class="credit credit-in"><span>Made by:</span><a href="https://www.youtube.com/@Ghost-Krew" target="_blank" rel="noopener">GhostKrew</a></div>`);
   $('credit').hidden=false;
-  wireIdentity();wireDonate();
+  wireIdentity();
   $('mSolo').onclick=showSolo;$('mHost').onclick=showHost;$('mJoin').onclick=showOnline;$('mTut').onclick=startTutorial;$('mGuide').onclick=()=>showTutorial(0);
 }
 // ---------- playable tutorial ----------
