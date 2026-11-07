@@ -1,12 +1,4 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="description" content="Frontwake: a real-time territory conquest game you can play solo against bots or online with friends.">
-<style>*,*::before,*::after{box-sizing:border-box}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
-</head>
-<body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Frontwake</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -245,6 +237,13 @@ details.howto ul.how li+li{margin-top:6px}
 .map .pic{border-radius:6px}
 .map:not(:disabled):hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--gold) 50%,var(--line));filter:none}
 .card h1{letter-spacing:.03em}
+.donate{display:flex;align-items:center;justify-content:center;gap:12px;text-decoration:none;color:#2a0d12;cursor:pointer;
+  background:linear-gradient(180deg,#f47a8a,#e2566b);border:1px solid #f08a98;border-radius:12px;padding:12px 16px;box-shadow:0 8px 20px -10px rgba(226,86,107,.8);transition:transform .15s,filter .15s}
+.donate:hover{transform:translateY(-1px);filter:brightness(1.06)}
+.donate svg{width:26px;height:26px;color:#fff;flex:none}
+.donate span{display:flex;flex-direction:column;gap:1px}
+.donate b{font-size:17px;letter-spacing:.08em;text-transform:uppercase;color:#fff}
+.donate small{font-size:13px;color:#ffe7ea}
 label.chk{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--sea);cursor:pointer}
 label.chk input{width:20px;height:20px;margin:2px 0 0;accent-color:var(--gold);flex:none}
 label.chk span{display:flex;flex-direction:column;gap:2px}
@@ -300,24 +299,7 @@ label.chk:has(input:focus-visible){outline:2px solid var(--gold);outline-offset:
   </footer>
 </div>
 
-<!-- PeerJS: uses a copy next to this page if you upload one (peerjs.min.js), otherwise the public CDN -->
-<script src="peerjs.min.js"></script>
-<!-- Online play through Firebase (free, Google-run). Paste your Firebase web config below to turn it on.
-     Leave it empty and the game uses PeerJS instead. Setup steps are in the README. -->
-<script>
-window.CLAIMLINE_FIREBASE = {
-  apiKey: "AIzaSyCj9HO13WFehle0xAHpVkoZ25055RDZdlE",
-  authDomain: "claimline-d8b8d.firebaseapp.com",
-  databaseURL: "https://claimline-d8b8d-default-rtdb.firebaseio.com",
-  projectId: "claimline-d8b8d",
-  storageBucket: "claimline-d8b8d.firebasestorage.app",
-  messagingSenderId: "349030330541",
-  appId: "1:349030330541:web:40758ba05acc3b17715624"
-};
-</script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-<script>if(!window.Peer)document.write('<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"><\/script>')</script>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 (()=>{
 let W=1600,H=1000,N=W*H;
@@ -561,7 +543,7 @@ const NUKE_R=26,SHIP_HP=100;
 let planes=[],ships=[],missiles=[],blasts=[],traders=[],tradePaths=new Map(),shots=[],floats=[];let scorch=new Uint8Array(N);
 const FORT_R=22;
 let buildings=[];let bAt=new Int32Array(N).fill(-1),fortOwner=new Int16Array(N).fill(-1);
-const cap=n=>100+n.tiles*6+n.e[1]*500;
+const cap=n=>(100+n.tiles*6+n.e[1]*500)*(n.mega?1.6:1);
 const ready=b=>!b.dead&&!(b.done>simTick);
 const bOwner=b=>b.k===15?b.o:own[b.t];
 const costOf=(n,k)=>isBomb(k)||k===14||k===16?KINDS[k].cost:Math.round(KINDS[k].cost*(1+(k===5?1:isWar(k)?.5:.6)*n.b[k]));
@@ -619,14 +601,24 @@ function pickCountries(M){ctryList=[];if(!M.real||!M.geo)return;const [cx,cy,sc]
     let best=-1;for(let r=0;r<=8&&best<0;r++)for(let dy=-r;dy<=r&&best<0;dy++)for(let dx=-r;dx<=r;dx++){if(Math.max(Math.abs(dx),Math.abs(dy))!==r)continue;const xx=x+dx,yy=y+dy;if(xx<0||yy<0||xx>=W||yy>=H)continue;const i=yy*W+xx;if(spawnable(i)){best=i;break}}
     if(best<0)continue;const bx=best%W,by=(best/W)|0;if(taken.some(([tx,ty])=>(tx-bx)**2+(ty-by)**2<sep*sep))continue;
     taken.push([bx,by]);const c=hexRGB(col).map(v=>Math.round(v*.82+128*.18));ctryList.push({name,home:best,rgb:c})}}
+// ---------- Miroslaw: a rare, very powerful bot ----------
+const MIRO_CHANCE=.2;
+function maybeMiroslaw(){const bots=nat.filter(n=>n.bot);
+  // solo maps reuse a fixed seed, so solo rolls its own dice; online uses the shared seed so every player agrees
+  const roll=mode==='solo'?Math.random:rng;if(tut||!bots.length||roll()>=MIRO_CHANCE)return;
+  // prefer replacing a made-up realm over a real country
+  const plain=bots.filter(n=>n.home===undefined),pool=plain.length?plain:bots,m=pool[Math.floor(roll()*pool.length)];
+  m.name='Miroslaw';m.rgb=[128,22,44];m.mega=true;m.troops=9000;m.gold=4000;delete m.home}
+function miroWarn(){if(nat.some(n=>n.mega&&n.alive))setTimeout(()=>toast('Warning: Miroslaw is in this world. He grows twice as fast and hunts everyone.'),600)}
 function addBot(k){const C=useCountries&&ctryList[k];if(C){addNation(C.name,C.rgb,true);nat[nat.length-1].home=C.home;return}
   addNation(botName(k),hsl((k*137.5+190)%360,34,50),true)}
 function setup(seedV,type,humans,bots){
-  seed=seedV;rng=mulberry32(seed);genMap(seed,type);resetCam();useCountries=realCountries&&!tut&&!!mapById(type).real;if(useCountries)pickCountries(mapById(type));else ctryList=[];own.fill(-1);bflag.fill(0);scorch.fill(0);dmark.fill(0);dlist=[];qh=qStart=qEnd=0;
+  seed=seedV;rng=mulberry32(seed);genMap(seed,type);resetCam();playOn=false;useCountries=realCountries&&!tut&&!!mapById(type).real;if(useCountries)pickCountries(mapById(type));else ctryList=[];own.fill(-1);bflag.fill(0);scorch.fill(0);dmark.fill(0);dlist=[];qh=qStart=qEnd=0;
   nat=[];borders=[];attacks=[];boats=[];ships=[];planes=[];rails=[];repairs=[];railRR=0;traders=[];tradePaths=new Map();shots=[];floats=[];missiles=[];blasts=[];buildings=[];bAt.fill(-1);fortOwner.fill(-1);pending=new Map();simTick=0;dirty=true;
   // a human is a name, or {n,c} with the colour they picked
   humans.forEach((h,k)=>{const n=typeof h==='string'?h:String(h.n||'Player').slice(0,16),c=typeof h==='object'&&COLOR_OK.test(h.c||'')?hexRGB(h.c):HUMAN[k%HUMAN.length];addNation(n,c,false)});
   for(let b=0;b<bots;b++)addBot(b);
+  maybeMiroslaw();
 }
 
 let bflag=new Uint8Array(N);
@@ -651,7 +643,7 @@ function placeRest(skip=-1){
   for(const a of nat){if(a.tiles>0||a.id===skip)continue;
     for(let pass=0;pass<4&&a.tiles===0;pass++){
       for(let tries=0;tries<3000;tries++){const i=(rng()*N)|0;if(!spawnable(i)||own[i]>=0||(pass<3&&blocked[i]))continue;
-        const x=i%W,y=(i/W)|0;claimDisc(x,y,r,a.id);block(x,y,Math.ceil(minD));break}
+        const x=i%W,y=(i/W)|0;claimDisc(x,y,a.mega?r+4:r,a.id);block(x,y,Math.ceil(minD));break}
       if(a.tiles===0){minD*=.6;}}
     if(a.tiles===0)a.alive=false}
 }
@@ -967,7 +959,7 @@ function botDiplo(b){
 function botThink(b){
   botDiplo(b);
   botBuild(b);
-  if(--b.cool>0)return;b.cool=DF().coolMin+Math.floor(rng()*DF().coolRange);
+  if(--b.cool>0)return;b.cool=DF().coolMin+Math.floor(rng()*DF().coolRange);if(b.mega)b.cool=Math.ceil(b.cool*.45);
   if(b.troops<cap(b)*.3)return;
   const seen=new Map();
   for(const i of borders[b.id])for(let k=0;k<4;k++){const n=nbs[i*4+k];if(n<0||!land[n])continue;const o=own[n];if(o!==b.id&&!seen.has(o))seen.set(o,n)}
@@ -981,11 +973,11 @@ function botThink(b){
   let anyMad=false;for(const [o] of seen)if(o>=0&&angry(b,o)&&!allied(b.id,o)){anyMad=true;break}
   if(seen.has(-1)&&rng()<(anyMad?.15:.75))target=-1;
   else{const myD=b.troops/Math.max(1,b.tiles);let best=1e9;
-    const picky=rng()>=DF().unprov;
+    const picky=!b.mega&&rng()>=DF().unprov;
     for(const [o] of seen){if(o<0||allied(b.id,o)||(tut&&o===P))continue;const mad=angry(b,o);if(picky&&!mad)continue;const d=nat[o];const s=(d.troops/Math.max(1,d.tiles))/myD+rng()*.6+(d.bot?0:DF().pBias)-(mad?.6:0);if(s<best){best=s;target=o}}
     if(best>DF().thr)target=seen.has(-1)?-1:null}
   if(target===null)return;
-  const send=b.troops*(DF().sendMin+rng()*DF().sendRange);b.troops-=send;const f=seen.get(target);
+  const send=b.troops*(DF().sendMin+rng()*DF().sendRange+(b.mega?.12:0));b.troops-=send;const f=seen.get(target);
   launch(b.id,target,send,f%W,(f/W)|0)
 }
 
@@ -994,8 +986,8 @@ function runTick(){
   simTick++;
   const list=pending.get(simTick);if(list){for(const [n,t,r,k] of list)applyInput(n,t,r,k|0);pending.delete(simTick)}
   recount();
-  for(const n of nat){if(!n.alive)continue;const m=cap(n);const bm=n.bot?DF():null;if(n.troops<m)n.troops+=(1+n.tiles*.012+n.e[3]*1.5)*(1-n.troops/m)*(bm?bm.regen:1);
-    n.gold+=(1+n.tiles*.005+n.e[1]*.3+n.e[2]*.8+n.e[15]*3+n.e[18]*.4)*(bm?bm.gold:1)}
+  for(const n of nat){if(!n.alive)continue;const m=cap(n);const bm=n.bot?DF():null;if(n.troops<m)n.troops+=(1+n.tiles*.012+n.e[3]*1.5)*(1-n.troops/m)*(bm?bm.regen:1)*(n.mega?2.2:1);
+    n.gold+=(1+n.tiles*.005+n.e[1]*.3+n.e[2]*.8+n.e[15]*3+n.e[18]*.4)*(bm?bm.gold:1)*(n.mega?2.2:1)}
   for(const n of nat)if(n.alive&&n.bot)botThink(n);
   attacks=attacks.filter(stepAttack);
   if(simTick%CREEP_EVERY===0)creep();
@@ -1014,10 +1006,12 @@ function runTick(){
   checkEnd();
 }
 function addPending(tk,n,t,r,k){if(!pending.has(tk))pending.set(tk,[]);pending.get(tk).push([n,t,r,k|0])}
-let shownDead=false;
+let shownDead=false,playOn=false;
 function checkEnd(){
   if(phase!=='play')return;
   const alive=nat.filter(n=>n.alive);
+  // after choosing Keep playing, nobody can win again: the match runs until you leave (or fall)
+  if(playOn){if(!nat[P].alive&&!shownDead){shownDead=true;if(mode==='solo')return end(false,'Your last province fell.');showDead()}return}
   if(nat[P].alive&&alive.length>1&&alive.every(n=>n.id===P||allied(P,n.id)))return end(true,null,true);
   const top=alive.find(n=>n.tiles/totalLand>=.7)||(alive.length===1?alive[0]:null);
   if(top)return end(top.id===P,top.id===P?null:`${top.name} now holds most of the world.`);
@@ -1362,7 +1356,7 @@ function tap(e){
     if(own[i]>=0)return toast(`${nat[own[i]].name} already landed there. Pick open land.`);
     {const cx=i%W,cy=(i/W)|0,r=spawnR();let free=0;for(let y=cy-r;y<=cy+r;y++)for(let x=cx-r;x<=cx+r;x++){if(x<0||y<0||x>=W||y>=H)continue;const j=y*W+x;if(land[j]&&own[j]<0&&(x-cx)**2+(y-cy)**2<=r*r)free++}
       if(free<Math.max(8,r*r))return toast("Too cramped there, right next to a rival. Pick a spot with more open land.")}
-    claimDisc(i%W,(i/W)|0,spawnR(),P);placeRest();$('banner').hidden=true;phase='play';running=true;if(tut){nat[P].gold=6000;tutCheck()}updateUI();return}
+    claimDisc(i%W,(i/W)|0,spawnR(),P);placeRest();$('banner').hidden=true;phase='play';running=true;if(tut){nat[P].gold=6000;tutCheck()}miroWarn();updateUI();return}
   if(phase!=='play'||!nat[P].alive)return;
   if(!land[i])return toast("Right-click (or press and hold) the sea to build ships and oil rigs.");
   const t=own[i];if(t===P)return;
@@ -1471,6 +1465,9 @@ function order(tile,r,k=0){
 let roomApi=null,roomState='pending',mode='solo',game=null,myPeer=null,hostPeer=null;
 let H_=null; // host bookkeeping
 let clientCode='',myActs=[],mySeq=0,hostTick=0,maxSeenId=0,ckLocal=new Map(),desynced=false,joinTimer=0,unsubs=[];
+const HOST_GRACE=25000;let hostLostAt=0,hostLostTm=0;
+// the host's own connection came back after a drop: send the latest state and relist the game
+function onNetBack(){if(mode!=='host'||!H_)return;publishHost();if(H_.phase==='lobby')announce({code:H_.code,n:nick,c:H_.players.length})}
 let nick='';
 try{nick=localStorage.getItem('claimline-nick')||''}catch{}
 if(!nick)nick='Captain '+(100+Math.floor(Math.random()*900));
@@ -1500,7 +1497,7 @@ function linkGame(kind,code,role){return new Promise((resolve,reject)=>{
     sendAll=m=>post(m);sendHost=m=>post({...m,to:'host'});
     ch.onmessage=ev=>{const m=ev.data;if(!m||m.from===myId||closed)return;
       if(role==='host'){if(m.to!=='host')return;if(m.t==='bye'){others.delete(m.from);emit();return}if(m.t==='p'){others.set(m.from,clean(m.p));emit()}if(m.t==='hi')sendAll({t:'p',p:myPres})}
-      else{if(m.role!=='host')return;if(m.t==='bye'){others.clear();emit();return}if(m.t==='p'){hostId=m.from;others.clear();others.set(m.from,clean(m.p));emit()}}};
+      else{if(m.role!=='host')return;if(m.t==='bye'){others.clear();others.set(m.from,{bye:1});emit();return}if(m.t==='p'){hostId=m.from;others.clear();others.set(m.from,clean(m.p));emit()}}};
     const rolePost=post;sendAll=m=>rolePost({...m,role:'host'});
     destroy=()=>{post(role==='host'?{t:'bye',role:'host'}:{t:'bye',to:'host'});ch.close()};
     if(role==='client')post({t:'hi',to:'host'});
@@ -1512,11 +1509,15 @@ function linkGame(kind,code,role){return new Promise((resolve,reject)=>{
     if(role==='host'){
       myId='h'+Math.random().toString(36).slice(2,10);const hostRef=db.ref(base+'/host'),plRef=db.ref(base+'/players');
       hostRef.once('value').then(snap=>{if(snap.val())return reject(new Error('taken'));
-        db.ref(base).onDisconnect().remove();
+        hostRef.onDisconnect().remove();
         const push=throttle(p=>hostRef.set({id:myId,p:clean(p),at:Date.now()}).catch(()=>{}),120);
         sendAll=m=>push(m.p);
         plRef.on('value',snap=>{const v=snap.val()||{};others.clear();for(const id in v)if(v[id]&&v[id].p)others.set(id,clean(v[id].p));emit()});
-        destroy=()=>{plRef.off();db.ref(base).remove().catch(()=>{})};
+        // after a dropped connection Firebase forgets onDisconnect, and the server may already have removed our node: put both back
+        const conRef=db.ref('.info/connected');let seen=false;
+        const onCon=snap=>{if(snap.val()!==true||closed)return;if(!seen){seen=true;return}hostRef.onDisconnect().remove();hostRef.set({id:myId,p:clean(myPres),at:Date.now()}).catch(()=>{});try{onNetBack()}catch{}};
+        conRef.on('value',onCon);
+        destroy=()=>{conRef.off('value',onCon);plRef.off();hostRef.set({id:myId,p:{bye:1},at:Date.now()}).catch(()=>{});setTimeout(()=>db.ref(base).remove().catch(()=>{}),2500)};
         hostRef.set({id:myId,p:{},at:Date.now()}).then(()=>resolve(api),reject)}).catch(reject)}
     else{
       myId='c'+Math.random().toString(36).slice(2,10);const hostRef=db.ref(base+'/host'),me=db.ref(base+'/players/'+myId);
@@ -1525,7 +1526,10 @@ function linkGame(kind,code,role){return new Promise((resolve,reject)=>{
         const push=throttle(p=>me.set({p:clean(p)}).catch(()=>{}),120);
         sendHost=m=>push(m.p);
         hostRef.on('value',snap=>{const v=snap.val();others.clear();if(v)others.set(v.id||'host',clean(v.p));emit()});
-        destroy=()=>{hostRef.off();me.remove().catch(()=>{})};
+        const conRef=db.ref('.info/connected');let seen=false;
+        const onCon=snap=>{if(snap.val()!==true||closed)return;if(!seen){seen=true;return}me.onDisconnect().remove();me.set({p:clean(myPres)}).catch(()=>{})};
+        conRef.on('value',onCon);
+        destroy=()=>{conRef.off('value',onCon);hostRef.off();me.remove().catch(()=>{})};
         resolve(api)}).catch(reject)}
     return}
   // p2p via PeerJS
@@ -1534,7 +1538,7 @@ function linkGame(kind,code,role){return new Promise((resolve,reject)=>{
   if(role==='host'){
     const peer=new window.Peer(roomId,{debug:0});const conns=new Map();
     sendAll=m=>{for(const c of conns.values())if(c.open)try{c.send(m)}catch{}};
-    destroy=()=>{for(const c of conns.values())try{c.close()}catch{}peer.destroy()};
+    destroy=()=>{for(const c of conns.values())try{c.send({t:'p',p:{bye:1}})}catch{}setTimeout(()=>{for(const c of conns.values())try{c.close()}catch{}peer.destroy()},400)};
     peer.on('open',id=>{myId=id;resolve(api)});
     peer.on('error',e=>{if(!myId)reject(e)});
     peer.on('disconnected',()=>{if(!closed)try{peer.reconnect()}catch{}});
@@ -1547,11 +1551,14 @@ function linkGame(kind,code,role){return new Promise((resolve,reject)=>{
     destroy=()=>{try{conn&&conn.close()}catch{}peer.destroy()};
     const fail=e=>{if(!conn||!conn.open){try{peer.destroy()}catch{}reject(e)}};
     peer.on('error',e=>fail(e));
-    peer.on('open',id=>{myId=id;conn=peer.connect(roomId,{reliable:true,serialization:'json'});
-      const to=setTimeout(()=>fail(new Error('timeout')),9000);
-      conn.on('open',()=>{clearTimeout(to);hostId=roomId;sendHost({t:'p',p:myPres});resolve(api)});
-      conn.on('data',m=>{if(m&&m.t==='p'&&typeof m.p==='object'){others.clear();others.set(roomId,clean(m.p));emit()}});
-      conn.on('close',()=>{others.clear();emit()});conn.on('error',()=>{})})}
+    let linked=false,redial=0;
+    const dial=()=>{if(closed)return;const c=peer.connect(roomId,{reliable:true,serialization:'json'});conn=c;
+      const to=linked?0:setTimeout(()=>fail(new Error('timeout')),9000);
+      c.on('open',()=>{clearTimeout(to);hostId=roomId;redial=0;sendHost({t:'p',p:myPres});if(!linked){linked=true;resolve(api)}});
+      c.on('data',m=>{if(m&&m.t==='p'&&typeof m.p==='object'){others.clear();others.set(roomId,clean(m.p));emit()}});
+      c.on('close',()=>{if(conn!==c)return;others.clear();emit();if(linked&&!closed&&redial<8){redial++;setTimeout(dial,2500)}});c.on('error',()=>{})};
+    peer.on('disconnected',()=>{if(!closed)try{peer.reconnect()}catch{}});
+    peer.on('open',id=>{myId=id;dial()})}
 })}
 // Firebase is used when the page provides a config (see the standalone site's window.CLAIMLINE_FIREBASE)
 let fbDbRef=null;
@@ -1575,13 +1582,13 @@ usePromise.then(r=>{roomApi=r;
 function checksum(){let c=0;for(let i=0;i<N;i++)c=(Math.imul(c,31)+own[i]+2)|0;return c}
 function recordChecksum(){if(mode==='solo')return;const c=checksum();
   if(mode==='host')H_.ck=[simTick,c];else{ckLocal.set(simTick,c);if(ckLocal.size>20)ckLocal.delete(ckLocal.keys().next().value)}}
-function schedule(n,tile,r,k=0){H_.inputId++;const e=[H_.inputId,simTick+2,n,tile,r,k];H_.log.push(e);if(H_.log.length>40)H_.log.shift();addPending(e[1],n,tile,r,k)}
+function schedule(n,tile,r,k=0){H_.inputId++;const e=[H_.inputId,simTick+2,n,tile,r,k];H_.log.push(e);if(H_.log.length>150)H_.log.shift();addPending(e[1],n,tile,r,k)}
 function kickPlayer(peer){if(mode!=='host'||!H_||!peer||H_.kicked.includes(peer))return;
   const k=H_.players.findIndex(x=>x.p===peer);if(k<1)return;const name=String(H_.players[k].n).slice(0,16);H_.kicked.push(peer);
   if(H_.phase==='lobby'){H_.players=H_.players.filter(x=>x.p!==peer);announce({code:H_.code,n:nick,c:H_.players.length});renderRoomLobby()}
   publishHost();toast(H_.phase==='lobby'?`${name} was kicked.`:`${name} was kicked. Their realm stands idle.`)}
 function publishHost(){if(!game||!H_)return;
-  game.presence({n:nick,g:{phase:H_.phase,diff,map:H_.map,type:H_.type,seed:H_.seed,bots:H_.bots,players:H_.players,rc:realCountries?1:0,kick:H_.kicked,tick:simTick,log:H_.log,ck:H_.ck}}).catch(()=>{})}
+  game.presence({n:nick,g:{phase:H_.phase,diff,map:H_.map,type:H_.type,seed:H_.seed,bots:H_.bots,players:H_.players,rc:realCountries?1:0,more:H_.more?1:0,kick:H_.kicked,tick:simTick,log:H_.log,ck:H_.ck}}).catch(()=>{})}
 function newCode(){const a='abcdefghjkmnpqrstuvwxyz23456789';let s='';for(let i=0;i<5;i++)s+=a[Math.floor(Math.random()*a.length)];return s}
 
 async function hostGame(){
@@ -1605,6 +1612,7 @@ async function joinGame(code){
   clearTimeout(joinTimer);joinTimer=setTimeout(()=>{if(mode==='client'&&!hostPeer){leaveOnline();showMenu();toast("No game found with that code.")}},10000);
 }
 function leaveOnline(){
+  clearTimeout(hostLostTm);hostLostAt=0;
   unsubs.forEach(u=>{try{u()}catch{}});unsubs=[];
   if(game){game.leave().catch(()=>{});game=null}
   if(mode==='host')announce(null);
@@ -1631,7 +1639,10 @@ function onGamePeers(ch){
   }
   if(mode==='client'){
     const h=peers.find(p=>p.presence&&typeof p.presence.g==='object'&&p.presence.g);
-    if(!h){if(hostPeer){hostGone()}return}
+    if(peers.some(p=>!p.sameTab&&p.presence&&p.presence.bye)){if(hostPeer)hostGone();return}
+    if(!h){if(hostPeer&&!hostLostAt){hostLostAt=Date.now();toast('Connection to the host dropped. Reconnecting…');clearTimeout(hostLostTm);
+        hostLostTm=setTimeout(()=>{if(hostLostAt&&mode==='client'){hostLostAt=0;hostGone(true)}},HOST_GRACE)}return}
+    if(hostLostAt){hostLostAt=0;clearTimeout(hostLostTm);toast('Reconnected to the host.')}
     hostPeer=h.peer;const g=h.presence.g;
     if(Array.isArray(g.kick)&&myPeer&&g.kick.includes(myPeer)){const c=clientCode;leaveOnline();try{sessionStorage.setItem('fw-kicked-'+c,'1')}catch{}showMenu();toast('The host kicked you from the game.');return}
     if(g.phase==='lobby'){if(screen==='waiting'||screen==='roomlobby')renderRoomLobbyClient(g)}
@@ -1642,19 +1653,21 @@ function onGamePeers(ch){
         diff=[0,1,2].includes(g.diff)?g.diff:1;realCountries=!!g.rc;
         startOnline(g.seed|0,mapById(g.type).id==='random'?'pangaea':mapById(g.type).id,g.players.map(x=>({n:String(x.n).slice(0,16),c:String(x.c||'')})),Math.max(0,Math.min(400,g.bots|0)),idx);
       }
+      if(g.more&&phase==='over'&&!playOn){resumeOver();toast('The host kept the match going.')}
+      if(g.more)playOn=true;
       if(Array.isArray(g.log))for(const e of g.log){if(Array.isArray(e)&&e[0]>maxSeenId){maxSeenId=e[0];addPending(e[1],e[2],e[3],e[4],e[5])}}
       if(Number.isInteger(g.tick))hostTick=Math.max(hostTick,g.tick);
       if(Array.isArray(g.ck)&&ckLocal.has(g.ck[0])&&ckLocal.get(g.ck[0])!==g.ck[1]&&!desynced){desynced=true;toast("Your map drifted out of sync with the host. Rejoin if things look off.")}
     }
   }
 }
-function hostGone(){if(mode!=='client')return;if(phase==='over'){leaveOnline();return}const wasPlaying=phase==='play';leaveOnline();
-  if(wasPlaying){phase='over';showCard(`<h1>Host <span>left</span></h1><p>The host closed the game, so the match ended.</p><button class="primary" id="toMenu">Main menu</button>`);$('toMenu').onclick=showMenu}
-  else{showMenu();toast("The host left the game.")}}
+function hostGone(lost){if(mode!=='client')return;clearTimeout(hostLostTm);hostLostAt=0;if(phase==='over'){leaveOnline();return}const wasPlaying=phase==='play';leaveOnline();
+  if(wasPlaying){phase='over';showCard(lost?`<h1>Connection <span>lost</span></h1><p>We couldn't reach the host for 25 seconds, so you left the match. Their internet may have dropped, or they closed the game.</p><button class="primary" id="toMenu">Main menu</button>`:`<h1>Host <span>left</span></h1><p>The host closed the game, so the match ended.</p><button class="primary" id="toMenu">Main menu</button>`);$('toMenu').onclick=showMenu}
+  else{showMenu();toast(lost?"Lost connection to the host.":"The host left the game.")}}
 
 function startOnline(seedV,type,names,bots,me){
   setup(seedV,type,names,bots);P=me;placeRest();shownDead=false;
-  phase='play';running=true;$('overlay').hidden=true;$('banner').hidden=true;
+  phase='play';running=true;$('overlay').hidden=true;$('banner').hidden=true;miroWarn();
   $('exitBtn').hidden=false;$('modeTag').hidden=false;$('modeTag').textContent='ONLINE · '+DF().name.toUpperCase();updateUI();
 }
 function hostStart(){
@@ -1711,6 +1724,11 @@ function wireIdentity(){
   hx.onchange=()=>{let v=hx.value.trim();if(!v.startsWith('#'))v='#'+v;if(COLOR_OK.test(v))apply(v);else hx.value=myColor};
   $('cdef').onclick=()=>apply(DEFAULT_COLOR);
   apply(myColor)}
+// ---------- donate button on the home screen ----------
+// The link comes from window.FW_DONATE (set in the site file): a Ko-fi, PayPal, Buy Me a Coffee or similar page.
+function wireDonate(){const a=$('donate');if(!a)return;const url=String(window.FW_DONATE||'');
+  if(/^https:\/\//.test(url)){a.href=url}else{a.removeAttribute('href');a.setAttribute('role','button');a.tabIndex=0;
+    const say=()=>toast('Donations aren’t set up yet. Check back soon!');a.onclick=say;a.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();say()}}}}
 function showMenu(){
   endTut();
   $('exitBtn').hidden=true;
@@ -1740,9 +1758,10 @@ function showMenu(){
   <li>Right-click the sea to build warships (needs a port) or oil rigs. Right-click enemy land for troop planes and bomber strikes (airport) or bombs (silo).</li>
   <li>Right-click another realm to propose an alliance. Allies can’t attack each other, can send each other gold and troops, and earn more from trade.</li>
   <li>Hold 70% of the land, or be the last realm (or alliance) standing.</li></ul></details>
+  <a class="donate" id="donate" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.7 4.5c2.1 0 3.6 1.2 5.3 3.2 1.7-2 3.2-3.2 5.3-3.2 3.7 0 5.8 3.9 4.3 7.3C19.5 16.4 12 21 12 21z" fill="currentColor"/></svg><span><b>Donate</b><small>Help keep Frontwake free and growing</small></span></a>
   <div class="credit credit-in"><span>Made by:</span><a href="https://www.youtube.com/@Ghost-Krew" target="_blank" rel="noopener">GhostKrew</a></div>`);
   $('credit').hidden=false;
-  wireIdentity();
+  wireIdentity();wireDonate();
   $('mSolo').onclick=showSolo;$('mHost').onclick=showHost;$('mJoin').onclick=showOnline;$('mTut').onclick=startTutorial;$('mGuide').onclick=()=>showTutorial(0);
 }
 // ---------- playable tutorial ----------
@@ -1839,7 +1858,7 @@ function showSolo(){
   const warn=()=>$('botwarn').hidden=botCount<150;wireBots(warn);warn();
   $('back').onclick=showMenu;$('backTop').onclick=showMenu;
   wireDiff();wireReal();
-  $('go').onclick=()=>{for(let b=0;b<botCount;b++)addBot(b);placeRest(P);shownDead=false;$('banner').textContent='Rivals have landed. Tap open land to pick your spot · drag to pan';
+  $('go').onclick=()=>{for(let b=0;b<botCount;b++)addBot(b);maybeMiroslaw();placeRest(P);shownDead=false;$('banner').textContent='Rivals have landed. Tap open land to pick your spot · drag to pan';
     $('overlay').hidden=true;phase='spawn';screen='game';$('banner').hidden=false;$('exitBtn').hidden=false;$('modeTag').hidden=false;$('modeTag').textContent='SOLO · '+DF().name.toUpperCase()};
 }
 function showOnline(){screen='online';renderOnline()}
@@ -1928,15 +1947,23 @@ function showDead(){
   $('watch').onclick=()=>$('overlay').hidden=true;$('toMenu').onclick=showMenu;
 }
 function end(won,why,byAlliance){
+  const canMore=!!nat[P]?.alive&&((mode==='solo'&&won)||mode==='host');
   if(mode==='solo')running=false;
   phase='over';const me=nat[P];
   if(mode==='host'){running=false;publishHost()}
   if(mode==='client')running=false;
   showCard(`<h1>${won?'Victory':'<span style="color:var(--danger)">Defeated</span>'}</h1>
   <p>${won?(byAlliance?`Every realm left standing is your ally. Your alliance rules the world after ${Math.round(simTick/10)} seconds.`:`You hold ${(me.tiles/totalLand*100).toFixed(0)}% of the world after ${Math.round(simTick/10)} seconds.`):esc(why)}</p>
-  <div class="row">${mode==='solo'?'<button class="primary" id="again">Play again</button>':''}<button id="toMenu" class="${mode==='solo'?'':'primary'}">Main menu</button></div>`);
+  ${canMore?`<button class="primary" id="more">Keep playing</button><p class="note">${mode==='host'?'Everyone in the match keeps going. ':''}The map stays as it is and the match won't end again until you leave.</p>`:''}
+  ${mode==='client'&&!playOn?'<p class="note">The host can choose to keep the match going.</p>':''}
+  <div class="row">${mode==='solo'?`<button class="${canMore?'':'primary'}" id="again">Play again</button>`:''}<button id="toMenu" class="${mode==='solo'||canMore?'':'primary'}">Main menu</button></div>`);
   if($('again'))$('again').onclick=showSolo;$('toMenu').onclick=showMenu;
+  if($('more'))$('more').onclick=keepPlaying;
 }
+function keepPlaying(){if(phase!=='over')return;playOn=true;resumeOver();
+  if(mode==='host'){H_.more=1;publishHost()}
+  toast('Playing on. Grab the rest of the world!')}
+function resumeOver(){playOn=true;phase='play';running=true;$('overlay').hidden=true;screen='game'}
 
 // ---------- loop ----------
 new ResizeObserver(resize).observe(cv);resize();
@@ -1951,5 +1978,4 @@ requestAnimationFrame(frame);
 })();
 </script>
 
-</body>
-</html>
+</body></html>
