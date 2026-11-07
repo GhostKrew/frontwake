@@ -1,4 +1,12 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Frontwake: a real-time territory conquest game you can play solo against bots or online with friends.">
+<style>*,*::before,*::after{box-sizing:border-box}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
 <title>Frontwake</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -293,7 +301,24 @@ label.chk:has(input:focus-visible){outline:2px solid var(--gold);outline-offset:
   </footer>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<!-- PeerJS: uses a copy next to this page if you upload one (peerjs.min.js), otherwise the public CDN -->
+<script src="peerjs.min.js"></script>
+<!-- Online play through Firebase (free, Google-run). Paste your Firebase web config below to turn it on.
+     Leave it empty and the game uses PeerJS instead. Setup steps are in the README. -->
+<script>
+window.CLAIMLINE_FIREBASE = {
+  apiKey: "AIzaSyCj9HO13WFehle0xAHpVkoZ25055RDZdlE",
+  authDomain: "claimline-d8b8d.firebaseapp.com",
+  databaseURL: "https://claimline-d8b8d-default-rtdb.firebaseio.com",
+  projectId: "claimline-d8b8d",
+  storageBucket: "claimline-d8b8d.firebasestorage.app",
+  messagingSenderId: "349030330541",
+  appId: "1:349030330541:web:40758ba05acc3b17715624"
+};
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>if(!window.Peer)document.write('<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"><\/script>')</script>
 <script>
 (()=>{
 let W=1600,H=1000,N=W*H;
@@ -672,7 +697,14 @@ function diplomacy(id,t,k,r){const n=nat[id],o=nat[t];if(!n||!o||!n.alive||!o.al
   else if(k===23)breakAlly(id,t)
   else if(k===24){if(!allied(id,t))return;const g=Math.floor(n.gold*.25);if(g<1)return;n.gold-=g;o.gold+=g;if(t===P)note(`${n.name} sent you ${fmt(g)} gold.`);if(id===P)note(`Sent ${fmt(g)} gold to ${o.name}.`)}
   else if(k===25){if(!allied(id,t))return;const tr=Math.floor(n.troops*Math.max(5,Math.min(100,r))/100);if(tr<5)return;n.troops-=tr;o.troops+=tr;if(t===P)note(`${n.name} sent you ${fmt(tr)} troops.`);if(id===P)note(`Sent ${fmt(tr)} troops to ${o.name}.`)}}
-function launch(a,t,troops,fx,fy){provoke(t,a);const ex=attacks.find(x=>x.a===a&&x.t===t);
+function launch(a,t,troops,fx,fy){provoke(t,a);
+  // a counter-attack meets the incoming army head-on: equal numbers cancel out, and only what's left over moves on
+  if(t>=0){const opp=attacks.find(x=>x.a===t&&x.t===a);if(opp&&opp.troops>0){const c=Math.min(troops,opp.troops);opp.troops-=c;troops-=c;
+    if(opp.troops<1)attacks.splice(attacks.indexOf(opp),1);
+    if(a===P)note(troops<1?`Your counter-attack wiped out ${fmt(c)} of ${nat[t].name}'s attacking troops.`:`Your counter-attack wiped out ${nat[t].name}'s ${fmt(c)} attacking troops and pushes on.`);
+    else if(t===P)note(troops<1?`${nat[a].name}'s counter-attack cancelled ${fmt(c)} of your attacking troops.`:`${nat[a].name}'s counter-attack wiped out your attack and pushes on.`);
+    if(troops<1)return}}
+  const ex=attacks.find(x=>x.a===a&&x.t===t);
   if(ex){ex.troops+=troops;ex.fx=fx;ex.fy=fy;ex.init=Math.max(ex.init,ex.troops)}else attacks.push({a,t,troops,fx,fy,init:troops})}
 function touches(a,t){for(const i of borders[a])for(let k=0;k<4;k++){const n=nbs[i*4+k];if(n>=0&&land[n]&&own[n]===t)return true}return false}
 function kill(id){const n=nat[id];n.alive=false;n.troops=0}
@@ -1966,4 +1998,5 @@ requestAnimationFrame(frame);
 })();
 </script>
 
-</body></html>
+</body>
+</html>
