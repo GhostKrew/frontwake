@@ -1,12 +1,4 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="description" content="Frontwake: a real-time territory conquest game you can play solo against bots or online with friends.">
-<style>*,*::before,*::after{box-sizing:border-box}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
-</head>
-<body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Frontwake</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -301,24 +293,7 @@ label.chk:has(input:focus-visible){outline:2px solid var(--gold);outline-offset:
   </footer>
 </div>
 
-<!-- PeerJS: uses a copy next to this page if you upload one (peerjs.min.js), otherwise the public CDN -->
-<script src="peerjs.min.js"></script>
-<!-- Online play through Firebase (free, Google-run). Paste your Firebase web config below to turn it on.
-     Leave it empty and the game uses PeerJS instead. Setup steps are in the README. -->
-<script>
-window.CLAIMLINE_FIREBASE = {
-  apiKey: "AIzaSyCj9HO13WFehle0xAHpVkoZ25055RDZdlE",
-  authDomain: "claimline-d8b8d.firebaseapp.com",
-  databaseURL: "https://claimline-d8b8d-default-rtdb.firebaseio.com",
-  projectId: "claimline-d8b8d",
-  storageBucket: "claimline-d8b8d.firebasestorage.app",
-  messagingSenderId: "349030330541",
-  appId: "1:349030330541:web:40758ba05acc3b17715624"
-};
-</script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-<script>if(!window.Peer)document.write('<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"><\/script>')</script>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 (()=>{
 let W=1600,H=1000,N=W*H;
@@ -1691,7 +1666,7 @@ function hostGone(lost){if(mode!=='client')return;clearTimeout(hostLostTm);hostL
   if(wasPlaying){phase='over';showCard(lost?`<h1>Connection <span>lost</span></h1><p>We couldn't reach the host for 25 seconds, so you left the match. Their internet may have dropped, or they closed the game.</p><button class="primary" id="toMenu">Main menu</button>`:`<h1>Host <span>left</span></h1><p>The host closed the game, so the match ended.</p><button class="primary" id="toMenu">Main menu</button>`);$('toMenu').onclick=showMenu}
   else{showMenu();toast(lost?"Lost connection to the host.":"The host left the game.")}}
 
-function startOnline(seedV,type,names,bots,me){
+function startOnline(seedV,type,names,bots,me){try{window.fwTrack&&fwTrack('start_match',{mode:mode==='host'?'host':'join',map:type,players:names.length})}catch{}
   setup(seedV,type,names,bots);P=me;placeRest();shownDead=false;
   phase='play';running=true;$('overlay').hidden=true;$('banner').hidden=true;miroWarn();
   $('exitBtn').hidden=false;$('modeTag').hidden=false;$('modeTag').textContent='ONLINE · '+DF().name.toUpperCase();updateUI();
@@ -1797,7 +1772,7 @@ const TSTEPS=[
  {t:'Cross the water',d:'Tap land on the far side of the strait. A boat carries part of your army across.',ok:()=>boats.some(b=>b.a===P)},
  {t:'Make an ally',d:'Right-click a rival’s land and choose Propose alliance. Allies can’t attack each other and earn more from trade.',ok:()=>Object.keys(nat[P].allies).length>0},
  {t:'Send a gift',d:'Right-click your new ally and choose Send gold or Send troops.',ok:e=>e.some(x=>x.k===24||x.k===25)}];
-function startTutorial(){
+function startTutorial(){try{window.fwTrack&&fwTrack('tutorial_begin')}catch{}
   $('credit').hidden=true;
   mode='solo';selectedMap='twin';const m=resolveMap('twin');setup(m.seed,m.type,[{n:nick,c:myColor}],0);P=0;
   for(let b=0;b<4;b++)addBot(b);placeRest(P);shownDead=false;
@@ -1878,7 +1853,7 @@ function showSolo(){
   const warn=()=>$('botwarn').hidden=botCount<150;wireBots(warn);warn();
   $('back').onclick=showMenu;$('backTop').onclick=showMenu;
   wireDiff();wireReal();
-  $('go').onclick=()=>{for(let b=0;b<botCount;b++)addBot(b);maybeMiroslaw();placeRest(P);shownDead=false;$('banner').textContent='Rivals have landed. Tap open land to pick your spot · drag to pan';
+  $('go').onclick=()=>{try{window.fwTrack&&fwTrack('start_match',{mode:'solo',map:selectedMap,bots:botCount})}catch{}for(let b=0;b<botCount;b++)addBot(b);maybeMiroslaw();placeRest(P);shownDead=false;$('banner').textContent='Rivals have landed. Tap open land to pick your spot · drag to pan';
     $('overlay').hidden=true;phase='spawn';screen='game';$('banner').hidden=false;$('exitBtn').hidden=false;$('modeTag').hidden=false;$('modeTag').textContent='SOLO · '+DF().name.toUpperCase()};
 }
 function showOnline(){screen='online';renderOnline()}
@@ -1998,5 +1973,4 @@ requestAnimationFrame(frame);
 })();
 </script>
 
-</body>
-</html>
+</body></html>
