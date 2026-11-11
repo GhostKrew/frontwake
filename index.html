@@ -1599,7 +1599,7 @@ function linkGame(kind,code,role){return new Promise((resolve,reject)=>{
       myId='h'+Math.random().toString(36).slice(2,10);const hostRef=db.ref(base+'/host'),plRef=db.ref(base+'/players');
       hostRef.once('value').then(snap=>{if(snap.val())return reject(new Error('taken'));
         hostRef.onDisconnect().remove();
-        const push=throttle(p=>hostRef.set({id:myId,p:clean(p),at:Date.now()}).catch(()=>{}),120);
+        const push=throttle(p=>hostRef.set({id:myId,p:clean(p),at:Date.now()}).catch(()=>{}),70);
         sendAll=m=>push(m.p);
         plRef.on('value',snap=>{const v=snap.val()||{};others.clear();for(const id in v)if(v[id]&&v[id].p)others.set(id,clean(v[id].p));emit()});
         // after a dropped connection Firebase forgets onDisconnect, and the server may already have removed our node: put both back
@@ -1612,7 +1612,7 @@ function linkGame(kind,code,role){return new Promise((resolve,reject)=>{
       myId='c'+Math.random().toString(36).slice(2,10);const hostRef=db.ref(base+'/host'),me=db.ref(base+'/players/'+myId);
       hostRef.once('value').then(snap=>{if(!snap.val())return reject(new Error('nogame'));
         me.onDisconnect().remove();
-        const push=throttle(p=>me.set({p:clean(p)}).catch(()=>{}),120);
+        const push=throttle(p=>me.set({p:clean(p)}).catch(()=>{}),60);
         sendHost=m=>push(m.p);
         hostRef.on('value',snap=>{const v=snap.val();others.clear();if(v)others.set(v.id||'host',clean(v.p));emit()});
         const conRef=db.ref('.info/connected');let seen=false;
@@ -1671,7 +1671,7 @@ usePromise.then(r=>{roomApi=r;
 function checksum(){let c=0;for(let i=0;i<N;i++)c=(Math.imul(c,31)+own[i]+2)|0;return c}
 function recordChecksum(){if(mode==='solo')return;const c=checksum();
   if(mode==='host')H_.ck=[simTick,c];else{ckLocal.set(simTick,c);if(ckLocal.size>20)ckLocal.delete(ckLocal.keys().next().value)}}
-function schedule(n,tile,r,k=0){H_.inputId++;const e=[H_.inputId,simTick+2,n,tile,r,k];H_.log.push(e);if(H_.log.length>150)H_.log.shift();addPending(e[1],n,tile,r,k)}
+function schedule(n,tile,r,k=0){H_.inputId++;const e=[H_.inputId,simTick+2,n,tile,r,k];H_.log.push(e);while(H_.log.length>150||(H_.log.length&&H_.log[0][1]<simTick-150))H_.log.shift();addPending(e[1],n,tile,r,k)}
 function kickPlayer(peer){if(mode!=='host'||!H_||!peer||H_.kicked.includes(peer))return;
   const k=H_.players.findIndex(x=>x.p===peer);if(k<1)return;const name=String(H_.players[k].n).slice(0,16);H_.kicked.push(peer);
   if(H_.phase==='lobby'){H_.players=H_.players.filter(x=>x.p!==peer);announce({code:H_.code,n:nick,c:H_.players.length});renderRoomLobby()}
@@ -2064,7 +2064,13 @@ previewMap(selectedMap);showMenu();
 let last=performance.now(),acc=0;
 function frame(now){
   acc+=Math.min(500,now-last);last=now;
-  if(mode==='client'){acc=0;if(running){let k=0;while(simTick<hostTick&&k<30&&running){runTick();k++}}}
+  if(mode==='client'){
+    if(!running){acc=0}else{const behind=hostTick-simTick;
+      // far behind (a slow phone, or back from a hiccup): jump most of the way at once
+      if(behind>50){let k=0;while(simTick<hostTick-4&&k<400&&running){runTick();k++}acc=0}
+      else{const step=behind>10?45:behind>4?75:100;let k=0;
+        while(acc>=step&&simTick<hostTick&&k<6&&running){acc-=step;runTick();k++}
+        if(simTick>=hostTick)acc=Math.min(acc,100)}}}
   else{let ran=false;while(acc>=100){acc-=100;if(running){runTick();ran=true}}if(ran&&mode==='host')publishHost()}
   draw();requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
