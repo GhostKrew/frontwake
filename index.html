@@ -119,6 +119,8 @@ footer.bar{border-top-width:1px}
 .fronts .row2.in b,.fronts .row2.in span{color:var(--danger)}
 #tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line);padding:4px 8px;font-family:var(--f-data);font-size:12px;border-radius:4px;white-space:nowrap}
 #toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--danger);color:var(--ink);padding:6px 12px;border-radius:4px;font-size:15px;max-width:calc(100% - 32px);text-align:center;z-index:5}
+#randSpot{position:absolute;left:50%;bottom:52px;transform:translateX(-50%);z-index:3;background:var(--panel);color:var(--ink);border:1px solid var(--gold);border-radius:999px;padding:7px 16px;font-size:14px;box-shadow:0 8px 20px -10px rgba(0,0,0,.8)}
+#randSpot:hover{background:color-mix(in srgb,var(--gold) 18%,var(--panel));filter:none}
 #banner{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:var(--gold);color:#1b1404;padding:6px 14px;border-radius:4px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:15px;white-space:nowrap}
 #overlay{position:absolute;inset:0;display:grid;place-items:center;background:color-mix(in srgb,var(--sea) 62%,transparent);padding:16px;overflow-y:auto}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:24px;max-width:440px;width:100%;display:flex;flex-direction:column;gap:14px}
@@ -292,6 +294,7 @@ label.chk:has(input:focus-visible){outline:2px solid var(--gold);outline-offset:
     <div id="tut" class="tutp" aria-live="polite" hidden></div>
     <div id="credit" class="credit" hidden><span>Made by:</span><a href="https://www.youtube.com/@Ghost-Krew" target="_blank" rel="noopener">GhostKrew</a></div>
     <div id="banner" hidden>Tap land to make landfall · drag to pan</div>
+    <button id="randSpot" type="button" hidden>🎲 Random spot</button>
     <div id="overlay"><div class="card" id="card"></div></div>
   </main>
   <footer class="bar">
@@ -655,7 +658,13 @@ function claimDisc(cx,cy,r,o){for(let y=cy-r;y<=cy+r;y++)for(let x=cx-r;x<=cx+r;
   if(land[i]&&own[i]<0&&(x-cx)**2+(y-cy)**2<=r*r)setOwner(i,o)}}
 function spawnable(i){return land[i]&&compSize[comp[i]]>=MINISLE}
 // place every nation that has no land yet, spaced apart (a blocked mask keeps it fast with hundreds of realms)
-function placeRest(skip=-1){
+function landHuman(id,tile){const n=nat[id];if(!n||n.tiles>0)return;const r=spawnR();
+  const ok=j=>j>=0&&j<N&&spawnable(j)&&own[j]<0;let t=ok(tile)?tile:-1;
+  if(t<0){for(let tries=0;tries<5000&&t<0;tries++){const j=(rng()*N)|0;if(!ok(j))continue;const cx=j%W,cy=(j/W)|0,R=r*3;let clear=true;
+      for(let y=Math.max(0,cy-R);y<=Math.min(H-1,cy+R)&&clear;y+=2)for(let x=Math.max(0,cx-R);x<=Math.min(W-1,cx+R);x+=2)if(own[y*W+x]>=0){clear=false;break}
+      if(clear||tries>3000)t=j}}
+  if(t>=0)claimDisc(t%W,(t/W)|0,r,id);if(n.tiles===0)n.alive=false}
+function placeRest(skip=-1,botsOnly=false){
   const n=nat.length,r=spawnR();
   let minD=Math.max(r*2+2,Math.min(170,Math.sqrt(totalLand/n)*.75));
   const blocked=new Uint8Array(N);
@@ -663,7 +672,7 @@ function placeRest(skip=-1){
   for(const a of nat)if(a.tiles>0){for(let i=0;i<N;i++)if(own[i]===a.id){block(i%W,(i/W)|0,Math.ceil(minD));break}}
   for(const a of nat){if(a.tiles>0||a.id===skip||a.home===undefined)continue;const h=a.home;if(own[h]>=0)continue;
     claimDisc(h%W,(h/W)|0,Math.min(r,6),a.id);if(a.tiles>0)block(h%W,(h/W)|0,Math.ceil(Math.min(minD,r*2+2)))}
-  for(const a of nat){if(a.tiles>0||a.id===skip)continue;
+  for(const a of nat){if(a.tiles>0||a.id===skip||(botsOnly&&!a.bot))continue;
     for(let pass=0;pass<4&&a.tiles===0;pass++){
       for(let tries=0;tries<3000;tries++){const i=(rng()*N)|0;if(!spawnable(i)||own[i]>=0||(pass<3&&blocked[i]))continue;
         const x=i%W,y=(i/W)|0;claimDisc(x,y,a.mega?r+4:r,a.id);block(x,y,Math.ceil(minD));break}
@@ -914,7 +923,8 @@ function detonate(a,c,R){
   blasts.push({c,r:R,at:performance.now()})}
 
 // the one way any player's order enters the simulation
-function applyInput(id,tile,r,k){if(k===26){repairArea(id,tile);return}
+function applyInput(id,tile,r,k){if(k===27){landHuman(id,tile);return}
+  if(k===26){repairArea(id,tile);return}
   if(k===19){upgrade(id,tile);return}
   if(k===17){build(id,tile,17);return}
   if(k>=20&&k<=25){if(tile>=0&&tile<nat.length)diplomacy(id,tile,k,r);return}
@@ -1249,12 +1259,19 @@ function drawIcon(g,k,x,y,s){const h=s/2;g.beginPath();
   else if(k===7){for(let j=0;j<16;j++){const a=j*Math.PI/8,rr=j%2?h*.45:h;g.lineTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr)}g.closePath()}
   else{const q=s/4;g.moveTo(x-h,y+h);g.lineTo(x-h,y-h);g.lineTo(x-h+q,y-h);g.lineTo(x-h+q,y-h+q);g.lineTo(x-q/2,y-h+q);g.lineTo(x-q/2,y-h);g.lineTo(x+q/2,y-h);g.lineTo(x+q/2,y-h+q);g.lineTo(x+h-q,y-h+q);g.lineTo(x+h-q,y-h);g.lineTo(x+h,y-h);g.lineTo(x+h,y+h);g.closePath()}
   g.fill();g.stroke();if(k===2){g.fillStyle='#08141e';g.beginPath();g.arc(x,y,h*.35,0,Math.PI*2);g.fill()}}
+function drawPicks(){const list=pickView.slice();if(myPick>=0&&!list.some(([id])=>id===P))list.push([P,myPick]);
+  for(const [id,t] of list){const n=nat[id];if(!n||t<0)continue;const x=ox+(t%W+.5)*scale,y=oy+(((t/W)|0)+.5)*scale,R=Math.max(8,spawnR()*scale);
+    ctx.fillStyle=`rgba(${n.rgb[0]},${n.rgb[1]},${n.rgb[2]},.35)`;ctx.strokeStyle=`rgb(${n.rgb})`;ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(x,y,R,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.font='700 13px "IBM Plex Sans", system-ui, sans-serif';ctx.textAlign='center';ctx.textBaseline='bottom';ctx.lineWidth=3;ctx.strokeStyle='rgba(8,20,30,.9)';ctx.fillStyle='#fff';
+    const lab=id===P?'You':n.name;ctx.strokeText(lab,x,y-R-3);ctx.fillText(lab,x,y-R-3)}}
 function draw(){
   const now=performance.now(),alpha=Math.min(1,Math.max(0,(now-tickAt)/100));
   paint(now);
   ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#0b1f2e';ctx.fillRect(0,0,cv.width,cv.height);
   ctx.imageSmoothingEnabled=false;ctx.drawImage(off,ox,oy,W*scale,H*scale);
   drawScenery();
+  if(phase==='spawn'&&mode!=='solo'){drawPicks();const left=Math.max(0,Math.ceil((pickEndLocal-Date.now())/1000)),b=$('banner');
+    const t=`${myPick>=0?'Spot chosen · tap to change':'Tap land to choose where you start'} · ${left}s`;if(b.textContent!==t)b.textContent=t}
   if(phase!=='play'&&phase!=='over'&&phase!=='spawn')return;
   drawRails();
   for(const r of repairs){const x=ox+(r.c%W+.5)*scale,y=oy+(((r.c/W)|0)+.5)*scale;if(x<-60||y<-60||x>vw+60||y>vh+60)continue;
@@ -1350,7 +1367,7 @@ function updateUI(){
   const top=nat.filter(n=>n.alive).sort((a,b)=>b.tiles-a.tiles).slice(0,5);
   $('board').innerHTML=top.map(n=>`<li class="${n.id===P?'me':allied(P,n.id)?'ally':''}"><i style="background:rgb(${n.rgb})"></i>${esc(n.name)}${allied(P,n.id)?' (ally)':''} ${(n.tiles/totalLand*100).toFixed(0)}%</li>`).join('');
 }
-function clearHUD(){$('reqs').hidden=true;reqKey='';$('bbar').hidden=true;$('tbar').hidden=true;$('fronts').hidden=true;['sGold','sTroops','sCap','sLand','sFronts'].forEach(id=>$(id).textContent='—');$('board').innerHTML=''}
+function clearHUD(){$('randSpot').hidden=true;$('reqs').hidden=true;reqKey='';$('bbar').hidden=true;$('tbar').hidden=true;$('fronts').hidden=true;['sGold','sTroops','sCap','sLand','sFronts'].forEach(id=>$(id).textContent='—');$('board').innerHTML=''}
 let reqKey='';
 let toastT;function toast(msg){const t=$('toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2200)}
 function tileAt(e){const r=cv.getBoundingClientRect();const x=Math.floor((e.clientX-r.left-ox)/scale),y=Math.floor((e.clientY-r.top-oy)/scale);
@@ -1382,11 +1399,7 @@ function tap(e){
   const i=tileAt(e);if(i<0)return;
   if(phase==='spawn'){
     if(!land[i])return toast("That's open water. Pick land.");
-    if(!spawnable(i))return toast("That rock is too small. Pick a bigger island.");
-    if(own[i]>=0)return toast(`${nat[own[i]].name} already landed there. Pick open land.`);
-    {const cx=i%W,cy=(i/W)|0,r=spawnR();let free=0;for(let y=cy-r;y<=cy+r;y++)for(let x=cx-r;x<=cx+r;x++){if(x<0||y<0||x>=W||y>=H)continue;const j=y*W+x;if(land[j]&&own[j]<0&&(x-cx)**2+(y-cy)**2<=r*r)free++}
-      if(free<Math.max(8,r*r))return toast("Too cramped there, right next to a rival. Pick a spot with more open land.")}
-    claimDisc(i%W,(i/W)|0,spawnR(),P);placeRest();$('banner').hidden=true;phase='play';running=true;if(tut){nat[P].gold=6000;tutCheck()}miroWarn();updateUI();return}
+    return chooseSpawn(i)}
   if(phase!=='play'||!nat[P].alive)return;
   if(!land[i])return toast("Right-click (or press and hold) the sea to build ships and oil rigs.");
   const t=own[i];if(t===P)return;
@@ -1484,6 +1497,47 @@ function closeBuild(){$('bmenu').hidden=true;menuTile=-1;menuHover=0}
 document.addEventListener('pointerdown',e=>{if(!$('bmenu').hidden&&!e.target.closest('#bmenu')&&e.target!==cv)closeBuild()});
 
 // route an order: solo applies now, host schedules it, client asks the host
+// why a landing spot is not allowed ('' = fine). others: picks other players already made (online)
+function spawnProblem(i,others){if(i<0||i>=N||!land[i])return 'Pick land, not sea.';
+  if(!spawnable(i))return "That rock is too small. Pick a bigger island.";
+  if(own[i]>=0)return `${nat[own[i]].name} already landed there. Pick open land.`;
+  const cx=i%W,cy=(i/W)|0,r=spawnR();let free=0;
+  for(let y=cy-r;y<=cy+r;y++)for(let x=cx-r;x<=cx+r;x++){if(x<0||y<0||x>=W||y>=H)continue;const j=y*W+x;if(land[j]&&own[j]<0&&(x-cx)**2+(y-cy)**2<=r*r)free++}
+  if(free<Math.max(8,r*r))return "Too cramped there, right next to a rival. Pick a spot with more open land.";
+  if(others)for(const t of others){if(t===undefined||t<0)continue;const dx=t%W-cx,dy=((t/W)|0)-cy;if(dx*dx+dy*dy<(r*2.5)**2)return 'Another player already picked a spot right there.'}
+  return ''}
+// a random good landing spot for the person at this screen (not part of the shared simulation)
+function randomSpawnTile(others){let best=-1,bestD=-1;
+  for(let t=0;t<6000;t++){const i=(Math.random()*N)|0;if(!land[i]||spawnProblem(i,others))continue;
+    // prefer room to grow: distance to the nearest realm, checked on a coarse ring
+    const cx=i%W,cy=(i/W)|0;let d=60;for(let rr=6;rr<60&&d===60;rr+=6)for(let a=0;a<16;a++){const x=Math.round(cx+Math.cos(a/16*Math.PI*2)*rr),y=Math.round(cy+Math.sin(a/16*Math.PI*2)*rr);if(x<0||y<0||x>=W||y>=H)continue;if(own[y*W+x]>=0){d=rr;break}}
+    if(d>bestD){bestD=d;best=i;if(d>=60)break}
+    if(t>400&&best>=0)break}
+  return best}
+// ---------- choosing where to land ----------
+// solo: land right away. online: everyone picks during a short countdown, then all land together.
+const PICK_MS=20000;let pickView=[],myPick=-1,pickEndLocal=0;
+function othersPicks(){return pickView.filter(([id])=>id!==P).map(([,t])=>t)}
+function chooseSpawn(i,quiet){
+  if(mode==='solo'){const why=spawnProblem(i);if(why){if(!quiet)toast(why);return false}
+    claimDisc(i%W,(i/W)|0,spawnR(),P);placeRest();$('banner').hidden=true;$('randSpot').hidden=true;phase='play';running=true;if(tut){nat[P].gold=6000;tutCheck()}miroWarn();updateUI();return true}
+  const why=spawnProblem(i,othersPicks());if(why){if(!quiet)toast(why);return false}
+  myPick=i;
+  if(mode==='host'){if(!H_.picking)return false;H_.picks[0]=i;refreshPickView();publishHost()}
+  else{mySeq++;myActs.push([mySeq,i,0,27]);if(myActs.length>10)myActs.shift();game?.presence({acts:myActs}).catch(()=>{})}
+  toast('Spot chosen. You can change it until the countdown ends.');return true}
+function randomSpot(){if(phase!=='spawn')return;const t=randomSpawnTile(mode==='solo'?null:othersPicks());if(t<0)return toast("Couldn't find open land. Try tapping a spot.");
+  // fly the camera there so the player sees where they landed
+  zoom=Math.max(zoom,3);camX=t%W+.5;camY=((t/W)|0)+.5;applyCam();chooseSpawn(t,true)}
+function refreshPickView(){if(mode==='host'&&H_&&H_.picks)pickView=Object.entries(H_.picks).map(([k,t])=>[+k,t])}
+function hostPickTick(){if(mode!=='host'||!H_||!H_.picking)return;const humans=H_.players.length;
+  const all=Array.from({length:humans},(_,k)=>H_.picks[k]!==undefined).every(Boolean)||Array.from({length:humans},(_,k)=>k).every(k=>H_.picks[k]!==undefined||H_.kicked.includes(H_.players[k].p));
+  if(all||Date.now()>=H_.pickEnd)hostBeginPlay();else publishHost()}
+function hostBeginPlay(){if(!H_.picking)return;H_.picking=false;clearInterval(H_.pickTimer);
+  // every human lands on the very first tick, in the same order everywhere; no pick means a random spot
+  for(let k=0;k<H_.players.length;k++){H_.inputId++;const e=[H_.inputId,simTick+1,k,H_.picks[k]??-1,0,27];H_.log.push(e);addPending(e[1],k,e[3],0,27)}
+  beginPlay();publishHost()}
+function beginPlay(){phase='play';running=true;$('banner').hidden=true;$('randSpot').hidden=true;pickView=[];miroWarn();updateUI()}
 function order(tile,r,k=0){
   if(tut)tut.ev.push({k,r,tile});
   if(mode==='solo'){applyInput(P,tile,r,k);updateUI()}
@@ -1618,7 +1672,7 @@ function kickPlayer(peer){if(mode!=='host'||!H_||!peer||H_.kicked.includes(peer)
   if(H_.phase==='lobby'){H_.players=H_.players.filter(x=>x.p!==peer);announce({code:H_.code,n:nick,c:H_.players.length});renderRoomLobby()}
   publishHost();toast(H_.phase==='lobby'?`${name} was kicked.`:`${name} was kicked. Their realm stands idle.`)}
 function publishHost(){if(!game||!H_)return;
-  game.presence({n:nick,g:{phase:H_.phase,diff,map:H_.map,type:H_.type,seed:H_.seed,bots:H_.bots,players:H_.players,rc:realCountries?1:0,more:H_.more?1:0,kick:H_.kicked,tick:simTick,log:H_.log,ck:H_.ck}}).catch(()=>{})}
+  game.presence({n:nick,g:{phase:H_.phase,diff,map:H_.map,type:H_.type,seed:H_.seed,bots:H_.bots,players:H_.players,pick:H_.picking?1:0,pickLeft:H_.picking?Math.max(0,Math.ceil((H_.pickEnd-Date.now())/1000)):0,picks:H_.picking?H_.picks:null,rc:realCountries?1:0,more:H_.more?1:0,kick:H_.kicked,tick:simTick,log:H_.log,ck:H_.ck}}).catch(()=>{})}
 function newCode(){const a='abcdefghjkmnpqrstuvwxyz23456789';let s='';for(let i=0;i<5;i++)s+=a[Math.floor(Math.random()*a.length)];return s}
 
 async function hostGame(){
@@ -1642,6 +1696,7 @@ async function joinGame(code){
   clearTimeout(joinTimer);joinTimer=setTimeout(()=>{if(mode==='client'&&!hostPeer){leaveOnline();showMenu();toast("No game found with that code.")}},10000);
 }
 function leaveOnline(){
+  if(H_&&H_.pickTimer)clearInterval(H_.pickTimer);
   clearTimeout(hostLostTm);hostLostAt=0;
   unsubs.forEach(u=>{try{u()}catch{}});unsubs=[];
   if(game){game.leave().catch(()=>{});game=null}
@@ -1661,8 +1716,11 @@ function onGamePeers(ch){
     }else{
       for(const p of peers){const idx=H_.players.findIndex(x=>x.p===p.peer);if(idx<1||H_.kicked.includes(p.peer))continue;
         const acts=p.presence?.acts;if(!Array.isArray(acts))continue;
-        for(const a of acts){if(!Array.isArray(a))continue;const [s,tile,r,kk]=a;const k=Number.isInteger(kk)&&((kk>=0&&kk<=19)||(kk>=20&&kk<=26))?kk:0;
+        for(const a of acts){if(!Array.isArray(a))continue;const [s,tile,r,kk]=a;const k=Number.isInteger(kk)&&((kk>=0&&kk<=19)||(kk>=20&&kk<=28))?kk:0;
           if(!Number.isInteger(s)||s<=(H_.lastSeq[p.peer]||0))continue;H_.lastSeq[p.peer]=s;
+          if(k===27){if(H_.picking&&Number.isInteger(tile)&&!spawnProblem(tile,Object.entries(H_.picks).filter(([q])=>+q!==idx).map(([,t])=>t))){H_.picks[idx]=tile;refreshPickView();publishHost()}continue}
+          if(k===28){if(phase==='over'&&!playOn){keepPlaying();toast(`${String(H_.players[idx].n).slice(0,16)} kept the match going.`)}continue}
+          if(phase!=='play')continue;
           if(Number.isInteger(tile)&&tile>=0&&tile<N&&Number.isFinite(r))schedule(idx,tile,Math.max(5,Math.min(100,Math.round(r))),k)}}
     }
     return;
@@ -1677,7 +1735,7 @@ function onGamePeers(ch){
     if(Array.isArray(g.kick)&&myPeer&&g.kick.includes(myPeer)){const c=clientCode;leaveOnline();try{sessionStorage.setItem('fw-kicked-'+c,'1')}catch{}showMenu();toast('The host kicked you from the game.');return}
     if(g.phase==='lobby'){if(screen==='waiting'||screen==='roomlobby')renderRoomLobbyClient(g)}
     else if(g.phase==='play'){
-      if(phase!=='play'&&phase!=='over'){
+      if(phase!=='play'&&phase!=='over'&&phase!=='spawn'){
         const idx=Array.isArray(g.players)?g.players.findIndex(x=>x.p===myPeer):-1;
         if(idx<0){leaveOnline();showMenu();return toast("That game already started without you.")}
         diff=[0,1,2].includes(g.diff)?g.diff:1;realCountries=!!g.rc;
@@ -1685,6 +1743,7 @@ function onGamePeers(ch){
       }
       if(g.more&&phase==='over'&&!playOn){resumeOver();toast('The host kept the match going.')}
       if(g.more)playOn=true;
+      if(phase==='spawn'){if(g.pick){pickEndLocal=Date.now()+(g.pickLeft|0)*1000;pickView=g.picks&&typeof g.picks==='object'?Object.entries(g.picks).map(([k,t])=>[+k,t|0]):[]}else beginPlay()}
       if(Array.isArray(g.log))for(const e of g.log){if(Array.isArray(e)&&e[0]>maxSeenId){maxSeenId=e[0];addPending(e[1],e[2],e[3],e[4],e[5])}}
       if(Number.isInteger(g.tick))hostTick=Math.max(hostTick,g.tick);
       if(Array.isArray(g.ck)&&ckLocal.has(g.ck[0])&&ckLocal.get(g.ck[0])!==g.ck[1]&&!desynced){desynced=true;toast("Your map drifted out of sync with the host. Rejoin if things look off.")}
@@ -1696,8 +1755,9 @@ function hostGone(lost){if(mode!=='client')return;clearTimeout(hostLostTm);hostL
   else{showMenu();toast(lost?"Lost connection to the host.":"The host left the game.")}}
 
 function startOnline(seedV,type,names,bots,me){try{window.fwTrack&&fwTrack('start_match',{mode:mode==='host'?'host':'join',map:type,players:names.length})}catch{}
-  setup(seedV,type,names,bots);P=me;placeRest();shownDead=false;
-  phase='play';running=true;$('overlay').hidden=true;$('banner').hidden=true;miroWarn();
+  setup(seedV,type,names,bots);P=me;placeRest(-1,true);shownDead=false;myPick=-1;pickView=[];
+  phase='spawn';running=false;$('overlay').hidden=true;$('banner').hidden=false;$('randSpot').hidden=false;pickEndLocal=Date.now()+PICK_MS;
+  if(mode==='host'){H_.picking=true;H_.picks={};H_.pickEnd=Date.now()+PICK_MS;H_.pickTimer=setInterval(hostPickTick,400)}
   $('exitBtn').hidden=false;$('modeTag').hidden=false;$('modeTag').textContent='ONLINE · '+DF().name.toUpperCase();updateUI();
 }
 function hostStart(){
@@ -1883,7 +1943,7 @@ function showSolo(){
   $('back').onclick=showMenu;$('backTop').onclick=showMenu;
   wireDiff();wireReal();
   $('go').onclick=()=>{try{window.fwTrack&&fwTrack('start_match',{mode:'solo',map:selectedMap,bots:botCount})}catch{}for(let b=0;b<botCount;b++)addBot(b);maybeMiroslaw();placeRest(P);shownDead=false;$('banner').textContent='Rivals have landed. Tap open land to pick your spot · drag to pan';
-    $('overlay').hidden=true;phase='spawn';screen='game';$('banner').hidden=false;$('exitBtn').hidden=false;$('modeTag').hidden=false;$('modeTag').textContent='SOLO · '+DF().name.toUpperCase()};
+    $('overlay').hidden=true;phase='spawn';screen='game';$('banner').hidden=false;$('randSpot').hidden=false;$('exitBtn').hidden=false;$('modeTag').hidden=false;$('modeTag').textContent='SOLO · '+DF().name.toUpperCase()};
 }
 function showOnline(){screen='online';renderOnline()}
 function roomNote(){return roomState==='pending'?`<p class="note">Connecting…</p>`:roomState==='none'?`<p class="note">Online play couldn't start here. Check your internet connection and reload the page.</p>`:''}
@@ -1971,25 +2031,29 @@ function showDead(){
   $('watch').onclick=()=>$('overlay').hidden=true;$('toMenu').onclick=showMenu;
 }
 function end(won,why,byAlliance){
-  const canMore=!!nat[P]?.alive&&((mode==='solo'&&won)||mode==='host');
+  const canMore=!!nat[P]?.alive&&((mode==='solo'&&won)||mode==='host'||mode==='client');lastWinByAlliance=!!(won&&byAlliance);
   if(mode==='solo')running=false;
   phase='over';const me=nat[P];
   if(mode==='host'){running=false;publishHost()}
   if(mode==='client')running=false;
   showCard(`<h1>${won?'Victory':'<span style="color:var(--danger)">Defeated</span>'}</h1>
   <p>${won?(byAlliance?`Every realm left standing is your ally. Your alliance rules the world after ${Math.round(simTick/10)} seconds.`:`You hold ${(me.tiles/totalLand*100).toFixed(0)}% of the world after ${Math.round(simTick/10)} seconds.`):esc(why)}</p>
-  ${canMore?`<button class="primary" id="more">Keep playing</button><p class="note">${mode==='host'?'Everyone in the match keeps going. ':''}The map stays as it is and the match won't end again until you leave.</p>`:''}
-  ${mode==='client'&&!playOn?'<p class="note">The host can choose to keep the match going.</p>':''}
+  ${canMore?`<button class="primary" id="more">Keep playing</button><p class="note">${mode!=='solo'?'Everyone in the match keeps going. ':''}The map stays as it is and the match won't end again until you leave.${byAlliance&&won?' To fight on, right-click an ally and break the alliance.':''}</p>`:''}
   <div class="row">${mode==='solo'?`<button class="${canMore?'':'primary'}" id="again">Play again</button>`:''}<button id="toMenu" class="${mode==='solo'||canMore?'':'primary'}">Main menu</button></div>`);
   if($('again'))$('again').onclick=showSolo;$('toMenu').onclick=showMenu;
   if($('more'))$('more').onclick=keepPlaying;
 }
-function keepPlaying(){if(phase!=='over')return;playOn=true;resumeOver();
+let lastWinByAlliance=false;
+function keepPlaying(){if(phase!=='over')return;
+  // an online player asks the host's game to carry on; it resumes for everyone together
+  if(mode==='client'){mySeq++;myActs.push([mySeq,0,0,28]);if(myActs.length>10)myActs.shift();game?.presence({acts:myActs}).catch(()=>{});toast('Asking to keep the match going…');return}
+  playOn=true;resumeOver();
   if(mode==='host'){H_.more=1;publishHost()}
-  toast('Playing on. Grab the rest of the world!')}
+  toast(lastWinByAlliance?'Playing on. Right-click an ally and break the alliance to keep conquering.':'Playing on. Grab the rest of the world!')}
 function resumeOver(){playOn=true;phase='play';running=true;$('overlay').hidden=true;screen='game'}
 
 // ---------- loop ----------
+$('randSpot').onclick=randomSpot;
 new ResizeObserver(resize).observe(cv);resize();
 previewMap(selectedMap);showMenu();
 let last=performance.now(),acc=0;
