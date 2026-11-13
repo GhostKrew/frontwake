@@ -550,8 +550,8 @@ const KINDS=[null,
 // construction time in ticks (10 ticks = 1 second)
 const BUILD_T={1:150,2:100,3:120,4:80,5:300,8:200,12:250,15:900,18:200};
 // buildings can be upgraded to level 5; each level adds the building's effect again (or more range/speed)
-const MAX_LV=5,UPG=new Set([1,2,3,4,8,12,15,18]);
-const UPG_TXT={1:'Each level adds +500 troop cap and +3 gold/s.',2:'Each level adds +8 gold/s.',3:'Each level adds +15 troops/s regrowth.',4:'Each level widens its protected area by 5 tiles.',
+const MAX_LV=5,UPG=new Set([1,2,3,4,5,8,12,15,18]);
+const UPG_TXT={5:'Level 3 unlocks the MIRV.',1:'Each level adds +500 troop cap and +3 gold/s.',2:'Each level adds +8 gold/s.',3:'Each level adds +15 troops/s regrowth.',4:'Each level widens its protected area by 5 tiles.',
   8:'Each level sends trade ships more often.',12:'Each level sends trade planes more often.',15:'Each level adds +30 gold/s.',18:'Each level adds +4 gold/s and one more railroad.'};
 const lvOf=b=>b.lv||1,upCost=b=>Math.round(KINDS[b.k].cost*.9*lvOf(b));
 function upgrade(id,tile){const i=bAt[tile];if(i<0)return false;const b=buildings[i],n=nat[id];if(!b||b.dead||bOwner(b)!==id||!UPG.has(b.k)||!ready(b)||lvOf(b)>=MAX_LV)return false;
