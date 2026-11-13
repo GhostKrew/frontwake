@@ -117,6 +117,11 @@ footer.bar{border-top-width:1px}
 .fronts .row2 span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .fronts .row2 b{font-family:var(--f-data);font-size:13px;font-variant-numeric:tabular-nums;color:var(--gold)}
 .fronts .row2.in b,.fronts .row2.in span{color:var(--danger)}
+.fronts .row2{align-items:center}
+.fronts button.fx{pointer-events:auto;font-size:11px;letter-spacing:.06em;padding:2px 7px;border-radius:6px;background:transparent;border-color:var(--line);color:var(--ink);flex:none}
+.fronts button.fx:hover{border-color:var(--gold);color:var(--gold);filter:none}
+.fronts button.fx.boom{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 50%,var(--line))}
+.fronts button.fx.boom:hover{background:color-mix(in srgb,var(--danger) 15%,transparent)}
 #tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line);padding:4px 8px;font-family:var(--f-data);font-size:12px;border-radius:4px;white-space:nowrap}
 #toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--danger);color:var(--ink);padding:6px 12px;border-radius:4px;font-size:15px;max-width:calc(100% - 32px);text-align:center;z-index:5}
 #randSpot{position:absolute;left:50%;bottom:52px;transform:translateX(-50%);z-index:3;background:var(--panel);color:var(--ink);border:1px solid var(--gold);border-radius:999px;padding:7px 16px;font-size:14px;box-shadow:0 8px 20px -10px rgba(0,0,0,.8)}
@@ -548,10 +553,12 @@ const KINDS=[null,
   {id:'mirv',name:'MIRV',cost:140000,desc:'Needs a level 3 silo. Splits into warheads spread across the whole target realm'},
   {id:'factory',name:'Factory',cost:4000,desc:'+4 gold/s, and lays railroads to nearby buildings, even in other countries'}];
 // construction time in ticks (10 ticks = 1 second)
-const BUILD_T={1:150,2:100,3:120,4:80,5:300,8:200,12:250,15:900,18:200};
+const BUILD_T={1:150,2:100,3:120,4:80,5:300,8:200,12:250,15:900,18:200,31:160};
 // buildings can be upgraded to level 5; each level adds the building's effect again (or more range/speed)
-const MAX_LV=5,UPG=new Set([1,2,3,4,5,8,12,15,18]);
-const UPG_TXT={5:'Level 3 unlocks the MIRV.',1:'Each level adds +500 troop cap and +3 gold/s.',2:'Each level adds +8 gold/s.',3:'Each level adds +15 troops/s regrowth.',4:'Each level widens its protected area by 5 tiles.',
+// SAM launcher: shoots down incoming bombs, MIRV warheads, bombers and troop planes near it
+const SAM=31,SAM_R=55,SAM_CD=30;KINDS[SAM]={id:'sam',name:'SAM Launcher',cost:9000,desc:'Shoots down bombs, MIRV warheads and enemy planes nearby'};
+const MAX_LV=5,UPG=new Set([1,2,3,4,5,8,12,15,18,SAM]);
+const UPG_TXT={31:'Each level reaches 10 tiles farther and reloads faster.',5:'Level 3 unlocks the MIRV.',1:'Each level adds +500 troop cap and +3 gold/s.',2:'Each level adds +8 gold/s.',3:'Each level adds +15 troops/s regrowth.',4:'Each level widens its protected area by 5 tiles.',
   8:'Each level sends trade ships more often.',12:'Each level sends trade planes more often.',15:'Each level adds +30 gold/s.',18:'Each level adds +4 gold/s and one more railroad.'};
 const lvOf=b=>b.lv||1,upCost=b=>Math.round(KINDS[b.k].cost*.9*lvOf(b));
 function upgrade(id,tile){const i=bAt[tile];if(i<0)return false;const b=buildings[i],n=nat[id];if(!b||b.dead||bOwner(b)!==id||!UPG.has(b.k)||!ready(b)||lvOf(b)>=MAX_LV)return false;
@@ -569,7 +576,7 @@ const NUKE_R=26,SHIP_HP=100;
 let planes=[],ships=[],missiles=[],blasts=[],traders=[],tradePaths=new Map(),shots=[],floats=[];let scorch=new Uint8Array(N);
 const FORT_R=22;
 let buildings=[];let bAt=new Int32Array(N).fill(-1),fortOwner=new Int16Array(N).fill(-1);
-const cap=n=>(100+n.tiles*6+n.e[1]*500)*(n.mega?1.6:1);
+const cap=n=>(100+n.tiles*6+n.e[1]*500)*(n.mega?1.6:1)*(n.zfac?1+(n.zfac-1)*.6:1);
 const ready=b=>!b.dead&&!(b.done>simTick);
 const bOwner=b=>b.k===15?b.o:own[b.t];
 const costOf=(n,k)=>isBomb(k)||k===14||k===16?KINDS[k].cost:Math.round(KINDS[k].cost*(1+(k===5?1:isWar(k)?.5:.6)*n.b[k]));
@@ -605,14 +612,14 @@ function build(id,tile,k){const n=nat[id];if(!n||!n.alive||!KINDS[k]||tile<0||ti
     const dx=tile%W-from%W,dy=((tile/W)|0)-((from/W)|0);missiles.push({a:id,from,to:tile,t:0,r:BOMB_R[k],dur:Math.min(80,(k===11?35:25)+Math.round(Math.sqrt(dx*dx+dy*dy)/20))});return true}
   if(!canPlace(id,tile))return false;
   n.gold-=c;n.b[k]++;bAt[tile]=buildings.length;buildings.push({t:tile,k,done:simTick+bt(k)});return true}
-function recount(){for(const n of nat){n.b=new Array(19).fill(0);n.e=new Array(19).fill(0);n.f=new Array(19).fill(0)}fortOwner.fill(-1);
+function recount(){for(const n of nat){n.b=new Array(32).fill(0);n.e=new Array(32).fill(0);n.f=new Array(32).fill(0)}fortOwner.fill(-1);
   for(const s of ships){nat[s.a].b[s.k]++;nat[s.a].e[s.k]++}
   for(const q of planes)if(q.k===13){nat[q.a].b[13]++;nat[q.a].e[13]++}
   for(const b of buildings){if(b.dead)continue;const o=bOwner(b);if(o<0)continue;nat[o].b[b.k]++;if(!ready(b)&&!(b.lv>1))continue;nat[o].f[b.k]++;nat[o].e[b.k]+=ready(b)?lvOf(b):lvOf(b)-1;
     if(b.k===4){const FR=FORT_R+(lvOf(b)-1)*5,x=b.t%W,y=(b.t/W)|0;for(let dy=-FR;dy<=FR;dy++)for(let dx=-FR;dx<=FR;dx++){if(dx*dx+dy*dy>FR*FR)continue;
       const xx=x+dx,yy=y+dy;if(xx<0||yy<0||xx>=W||yy>=H)continue;const i=yy*W+xx;if(own[i]===o)fortOwner[i]=o}}}}
 
-function addNation(name,rgb,bot){nat.push({id:nat.length,name,rgb,troops:3000,gold:400,b:new Array(19).fill(0),tiles:0,coast:0,sx:0,sy:0,alive:true,e:new Array(19).fill(0),f:new Array(19).fill(0),grudge:{},allies:{},req:{},bot,cool:20+Math.floor(rng()*30),bcool:60+Math.floor(rng()*120)});borders.push(new Set())}
+function addNation(name,rgb,bot){nat.push({id:nat.length,name,rgb,troops:3000,gold:400,b:new Array(32).fill(0),tiles:0,coast:0,sx:0,sy:0,alive:true,e:new Array(32).fill(0),f:new Array(32).fill(0),grudge:{},allies:{},req:{},bot,cool:20+Math.floor(rng()*30),bcool:60+Math.floor(rng()*120)});borders.push(new Set())}
 const PRE=["Ash","Bren","Cal","Dun","Esk","Fer","Gal","Hal","Isel","Kad","Mor","Orr","Quill","Sable","Tarn","Uld","Vess","Wyn","Thal","Ren"];
 const SUF=["mark","vale","moor","reach","gard","holt","wick","ford","crest","lund","haven","fell","by","mere","stead","wold","hurst","shire","dale","port"];
 const botName=k=>k<NAMES.length?NAMES[k]:PRE[k%20]+SUF[(Math.floor(k/20)+k)%20];
@@ -620,6 +627,9 @@ const COUNTRIES=[["United States",-75.2,39.95,"#3c5a9a"],["China",108.94,34.34,"
 // on real-world maps, bots can be real countries that begin where they began in history
 let realCountries=true;try{realCountries=localStorage.getItem('frontwake-realc')!=='0'}catch{}
 let ctryList=[],useCountries=false;
+// match options picked in the Solo screen or the host lobby (online games use the host's choices)
+let noAlly=false,zombieMode=false;try{noAlly=localStorage.getItem('frontwake-noally')==='1';zombieMode=localStorage.getItem('frontwake-zombie')==='1'}catch{}
+let matchNoAlly=false,matchZombie=false;
 function pickCountries(M){ctryList=[];if(!M.real||!M.geo)return;const [cx,cy,sc]=M.geo,sep=Math.max(9,Math.round(W/110)),taken=[];
   for(const [name,lon,lat,col] of COUNTRIES){const X=lon*Math.PI/180,Y=1.25*Math.log(Math.tan(Math.PI/4+.4*lat*Math.PI/180));
     const x=Math.round(W/2+(X-cx)*sc),y=Math.round(H/2-(Y-cy)*sc);if(x<2||y<2||x>W-3||y>H-3)continue;
@@ -629,22 +639,28 @@ function pickCountries(M){ctryList=[];if(!M.real||!M.geo)return;const [cx,cy,sc]
     taken.push([bx,by]);const c=hexRGB(col).map(v=>Math.round(v*.82+128*.18));ctryList.push({name,home:best,rgb:c})}}
 // ---------- Miroslaw: a rare, very powerful bot ----------
 const MIRO_CHANCE=.2;
-function maybeMiroslaw(){const bots=nat.filter(n=>n.bot);
+function maybeMiroslaw(){if(matchZombie)return;const bots=nat.filter(n=>n.bot&&!n.zombie);
   // solo maps reuse a fixed seed, so solo rolls its own dice; online uses the shared seed so every player agrees
   const roll=mode==='solo'?Math.random:rng;if(tut||!bots.length||roll()>=MIRO_CHANCE)return;
   // prefer replacing a made-up realm over a real country
   const plain=bots.filter(n=>n.home===undefined),pool=plain.length?plain:bots,m=pool[Math.floor(roll()*pool.length)];
   m.name='Miroslaw';m.rgb=[128,22,44];m.mega=true;m.troops=9000;m.gold=4000;delete m.home}
-function miroWarn(){if(nat.some(n=>n.mega&&n.alive))setTimeout(()=>toast('Warning: Miroslaw is in this world. He grows twice as fast and hunts everyone.'),600)}
+function maybeZombie(){if(!matchZombie||tut)return;const humans=nat.filter(n=>!n.bot),H=Math.max(1,humans.length);
+  addNation('Zombie Horde',[92,160,64],true);const z=nat[nat.length-1];
+  z.zombie=true;z.mega=true;z.zfac=1+.6*(H-1);z.troops=9000*H;z.gold=4000*H;
+  // the living fight side by side
+  for(const a of humans)for(const b of humans)if(a!==b){a.allies[b.id]=true;b.allies[a.id]=true}}
+function zombieWarn(){if(nat.some(n=>n.zombie&&n.alive))setTimeout(()=>toast(`The Zombie Horde has risen${nat.filter(n=>!n.bot).length>1?'. Work together':''} — destroy it before it eats the world!`),900)}
+function miroWarn(){zombieWarn();if(matchZombie)return;if(nat.some(n=>n.mega&&n.alive))setTimeout(()=>toast('Warning: Miroslaw is in this world. He grows twice as fast and hunts everyone.'),600)}
 function addBot(k){const C=useCountries&&ctryList[k];if(C){addNation(C.name,C.rgb,true);nat[nat.length-1].home=C.home;return}
   addNation(botName(k),hsl((k*137.5+190)%360,34,50),true)}
 function setup(seedV,type,humans,bots){
-  seed=seedV;rng=mulberry32(seed);genMap(seed,type);resetCam();playOn=false;useCountries=realCountries&&!tut&&!!mapById(type).real;if(useCountries)pickCountries(mapById(type));else ctryList=[];own.fill(-1);bflag.fill(0);scorch.fill(0);dmark.fill(0);dlist=[];qh=qStart=qEnd=0;
-  nat=[];borders=[];attacks=[];boats=[];ships=[];planes=[];rails=[];repairs=[];railRR=0;traders=[];tradePaths=new Map();shots=[];floats=[];missiles=[];blasts=[];buildings=[];bAt.fill(-1);fortOwner.fill(-1);pending=new Map();simTick=0;dirty=true;
+  seed=seedV;rng=mulberry32(seed);genMap(seed,type);resetCam();playOn=false;matchNoAlly=noAlly&&!tut;matchZombie=zombieMode&&!tut;useCountries=realCountries&&!tut&&!!mapById(type).real;if(useCountries)pickCountries(mapById(type));else ctryList=[];own.fill(-1);bflag.fill(0);scorch.fill(0);dmark.fill(0);dlist=[];qh=qStart=qEnd=0;
+  nat=[];borders=[];attacks=[];boats=[];uidN=0;ships=[];planes=[];rails=[];repairs=[];railRR=0;traders=[];tradePaths=new Map();shots=[];floats=[];missiles=[];blasts=[];buildings=[];bAt.fill(-1);fortOwner.fill(-1);pending=new Map();simTick=0;dirty=true;
   // a human is a name, or {n,c} with the colour they picked
   humans.forEach((h,k)=>{const n=typeof h==='string'?h:String(h.n||'Player').slice(0,16),c=typeof h==='object'&&COLOR_OK.test(h.c||'')?hexRGB(h.c):HUMAN[k%HUMAN.length];addNation(n,c,false)});
   for(let b=0;b<bots;b++)addBot(b);
-  maybeMiroslaw();
+  maybeMiroslaw();maybeZombie();
 }
 
 let bflag=new Uint8Array(N);
@@ -691,16 +707,17 @@ const angry=(b,o)=>b.grudge[o]>simTick;
 const allied=(a,b)=>a>=0&&b>=0&&a!==b&&!!nat[a].allies[b];
 const REQ_TICKS=600;
 function note(msg){if(phase==='play')toast(msg)}
-function makeAllies(a,b){if(a===b||!nat[a].alive||!nat[b].alive)return;nat[a].allies[b]=true;nat[b].allies[a]=true;delete nat[a].req[b];delete nat[b].req[a];
+function makeAllies(a,b){if(a===b||!nat[a].alive||!nat[b].alive||matchNoAlly||nat[a].zombie||nat[b].zombie)return;nat[a].allies[b]=true;nat[b].allies[a]=true;delete nat[a].req[b];delete nat[b].req[a];
   delete nat[a].grudge[b];delete nat[b].grudge[a];
   // call off fighting between the two; troops head home
   attacks=attacks.filter(x=>{if((x.a===a&&x.t===b)||(x.a===b&&x.t===a)){nat[x.a].troops+=x.troops;return false}return true});
   if(a===P||b===P)note(`You and ${nat[a===P?b:a].name} are now allies.`)}
-function breakAlly(a,b){if(!allied(a,b))return;delete nat[a].allies[b];delete nat[b].allies[a];provoke(b,a);
+const teammates=(a,b)=>matchZombie&&a>=0&&b>=0&&!nat[a].bot&&!nat[b].bot;
+function breakAlly(a,b){if(!allied(a,b)||teammates(a,b))return;delete nat[a].allies[b];delete nat[b].allies[a];provoke(b,a);
   if(b===P)note(`${nat[a].name} broke your alliance!`);else if(a===P)note(`You broke your alliance with ${nat[b].name}.`)}
 // bots weigh a request: no grudge, not dwarfed, and their mood by difficulty
 let tut=null;const bt=k=>Math.round((BUILD_T[k]||0)*(tut?.25:1));
-function botAnswers(b,from){if(tut&&from===P)return true;if(angry(b,from))return false;const f=nat[from];if(f.tiles>b.tiles*3)return rng()<.15;return rng()<[.65,.5,.35][diff]}
+function botAnswers(b,from){if(matchNoAlly||b.zombie||nat[from].zombie)return false;if(tut&&from===P)return true;if(angry(b,from))return false;const f=nat[from];if(f.tiles>b.tiles*3)return rng()<.15;return rng()<[.65,.5,.35][diff]}
 function diplomacy(id,t,k,r){const n=nat[id],o=nat[t];if(!n||!o||!n.alive||!o.alive||id===t)return;
   if(k===20){if(allied(id,t))return;if(n.req[t]>simTick)return makeAllies(id,t);
     if(o.bot){if(botAnswers(o,id))makeAllies(id,t);else if(id===P)note(`${o.name} turned down your alliance.`)}
@@ -750,7 +767,7 @@ function stepAttack(at){
   return true
 }
 // ---------- boats ----------
-let boats=[];const MAXBOATS=3,BOAT_SPEED=.5;
+let boats=[],uidN=0;const MAXBOATS=3,BOAT_SPEED=.5;
 let bpar=new Int32Array(N),bseen=new Uint32Array(N);let bstamp=0;
 // giant maps use a bigger tile grid: swap every per-tile array for one of the new size
 function resizeGrid(w,h){if(w===W&&h===H)return;W=w;H=h;N=W*H;
@@ -777,7 +794,7 @@ function boatPath(id,tile){
       if(bseen[n]!==bstamp){bseen[n]=bstamp;bpar[n]=w;q.push(n)}}}
   return null}
 function launchBoat(id,tile,troops){if(boats.filter(b=>b.a===id).length>=MAXBOATS)return false;const r=boatPath(id,tile);if(!r)return false;
-  boats.push({a:id,troops,path:r.path,pos:0,hp:30+Math.min(troops,600)*.1});return true}
+  boats.push({a:id,troops,path:r.path,pos:0,hp:30+Math.min(troops,600)*.1,uid:++uidN});return true}
 function stepBoats(){
   boats=boats.filter(b=>{const A=nat[b.a];if(!A.alive)return false;b.pos+=BOAT_SPEED;if(b.pos<b.path.length-1)return true;
     landTroops(b.a,b.path[b.path.length-1],b.troops);return false})}
@@ -790,7 +807,7 @@ function landTroops(a,L,troops){const A=nat[a],o=own[L];
 // ---------- troop planes ----------
 function launchAirlift(id,tile,troops){if(!land[tile]||own[tile]===id)return false;if(planes.filter(q=>q.a===id&&q.k===16).length>=MAX_AIRLIFT)return false;
   const ap=nearestAirport(id,tile);if(!ap)return false;const hp=30+Math.min(troops,600)*.08;
-  planes.push({a:id,k:16,x:ap.t%W,y:(ap.t/W)|0,tx:tile%W,ty:(tile/W)|0,dest:tile,troops,hp,max:hp});return true}
+  planes.push({a:id,k:16,x:ap.t%W,y:(ap.t/W)|0,tx:tile%W,ty:(tile/W)|0,dest:tile,troops,hp,max:hp,uid:++uidN});return true}
 
 // ---------- warships + nukes ----------
 const boatTile=b=>b.path[Math.min(b.path.length-1,Math.floor(b.pos))];
@@ -903,6 +920,21 @@ function stepTrade(){
     const d=own[t.dest],al=allied(t.a,d),g=Math.round((60+t.path.length*.5)*(al?1.5:1));nat[t.a].gold+=g;if(d>=0&&d!==t.a&&nat[d].alive)nat[d].gold+=Math.round(g*(al?.5:.3));
     if(t.a===P){const e=t.path[t.path.length-1];floats.push({t:e,text:'+'+g,at:performance.now()})}
     return false})}
+function stepSams(){if(!missiles.length&&!planes.length)return;
+  for(const b of buildings){if(b.k!==SAM||b.dead||!ready(b))continue;const o=bOwner(b);if(o<0)continue;if(b.cd>0){b.cd--;continue}
+    const lv=lvOf(b),R=SAM_R+10*(lv-1),R2=R*R,bx=b.t%W,by=(b.t/W)|0,reload=Math.max(8,SAM_CD-5*(lv-1));
+    // bombs and warheads coming down inside its range (MIRV carriers too, before they split)
+    let hit=-1;for(let j=0;j<missiles.length;j++){const m=missiles[j];if(m.a===o||allied(o,m.a))continue;if(m.t<m.dur*.3)continue;
+      const tx=m.to%W-bx,ty=((m.to/W)|0)-by;if(tx*tx+ty*ty<=R2){hit=j;break}}
+    if(hit>=0){const m=missiles[hit];missiles.splice(hit,1);b.cd=reload;const f=m.t/m.dur,px=Math.round(lerp(m.from%W,m.to%W,f)),py=Math.round(lerp((m.from/W)|0,(m.to/W)|0,f)),pos=Math.max(0,Math.min(H-1,py))*W+Math.max(0,Math.min(W-1,px));
+      shots.push({a:b.t,b:pos,at:performance.now(),big:true});blasts.push({c:pos,r:3,at:performance.now(),small:true});
+      const what=m.carrier!==undefined?'a MIRV':m.head?'a MIRV warhead':m.r>=40?'a hydrogen bomb':'an atom bomb';
+      if(o===P)note(`Your SAM shot down ${what} from ${nat[m.a].name}.`);else if(m.a===P)note(`${nat[o].name}'s SAM shot down your ${what.replace(/^an? /,'')}.`);continue}
+    // enemy bombers and troop planes flying through its range
+    for(const q of planes){if(q.a===o||allied(o,q.a)||(q.k!==14&&q.k!==16)||q.hp<=0)continue;const dx=q.x-bx,dy=q.y-by;if(dx*dx+dy*dy>R2)continue;
+      q.hp-=65;b.cd=reload;shots.push({a:b.t,b:Math.round(q.y)*W+Math.round(q.x),at:performance.now(),big:true});
+      if(q.hp<=0){if(o===P)note(`Your SAM shot down a ${q.k===14?'bomber':'troop plane'} from ${nat[q.a].name}.`);else if(q.a===P)note(`A SAM from ${nat[o].name} shot down your ${q.k===14?'bomber':'troop plane'}.`)}
+      break}}}
 function stepMissiles(){
   const split=[];
   missiles=missiles.filter(m=>{if(++m.t<m.dur)return true;if(m.carrier!==undefined){split.push(m);return false}detonate(m.a,m.to,m.r);return false});
@@ -928,12 +960,16 @@ function detonate(a,c,R){
 
 // the one way any player's order enters the simulation
 function applyInput(id,tile,r,k){if(k===27){landHuman(id,tile);return}
+  if(k===29){const t=tile-1,x=attacks.find(a=>a.a===id&&a.t===t);if(!x)return;attacks.splice(attacks.indexOf(x),1);nat[id].troops+=x.troops;
+    if(id===P)note(`Retreated. ${fmt(x.troops)} troops came home.`);return}
+  if(k===30){const bi=boats.findIndex(b=>b.a===id&&b.uid===tile);if(bi>=0){const b=boats[bi];boats.splice(bi,1);blasts.push({c:b.path[Math.min(b.path.length-1,Math.floor(b.pos))],r:4,at:performance.now(),small:true});if(id===P)note(`Your boat self-destructed. ${fmt(b.troops)} troops were lost.`);return}
+    const pi=planes.findIndex(q=>q.a===id&&q.k===16&&q.uid===tile);if(pi>=0){const q=planes[pi];planes.splice(pi,1);blasts.push({c:Math.round(q.y)*W+Math.round(q.x),r:4,at:performance.now(),small:true});if(id===P)note(`Your troop plane self-destructed. ${fmt(q.troops)} troops were lost.`)}return}
   if(k===26){repairArea(id,tile);return}
   if(k===19){upgrade(id,tile);return}
   if(k===17){build(id,tile,17);return}
   if(k>=20&&k<=25){if(tile>=0&&tile<nat.length)diplomacy(id,tile,k,r);return}
   if(k===16&&land[tile]&&allied(id,own[tile]))return;if(k===16){const n=nat[id];if(!n||!n.alive)return;const send=Math.floor(n.troops*r/100);if(send>=5&&launchAirlift(id,tile,send))n.troops-=send;return}
-  if((k>=1&&k<=15)||k===18){build(id,tile,k);return}const n=nat[id];if(!n||!n.alive||tile<0||tile>=N||!land[tile])return;const t=own[tile];
+  if((k>=1&&k<=15)||k===18||k===SAM){build(id,tile,k);return}const n=nat[id];if(!n||!n.alive||tile<0||tile>=N||!land[tile])return;const t=own[tile];
   if(t===id||allied(id,t))return;const send=Math.floor(n.troops*r/100);if(send<5)return;
   if(landReach(id,tile)){n.troops-=send;launch(id,t,send,tile%W,(tile/W)|0)}
   else if(launchBoat(id,tile,send))n.troops-=send}
@@ -972,6 +1008,8 @@ function botBuild(b){
     if(tgt&&borders[tgt.id].size){let idx=Math.floor(rng()*borders[tgt.id].size);for(const i of borders[tgt.id]){if(idx--<=0){build(b.id,i,7);break}}}return}
   if(b.tiles>2500&&b.b[12]===0&&rng()<.08&&b.gold>=costOf(b,12)*1.2){const arr=borders[b.id];let idx=Math.floor(rng()*arr.size),t=-1;for(const i of arr){if(idx--<=0){t=i;break}}
     if(t>=0){const x=t%W,y=(t/W)|0;for(let s2=0;s2<8;s2++){const xx=Math.max(0,Math.min(W-1,x+Math.round((rng()-.5)*56))),yy=Math.max(0,Math.min(H-1,y+Math.round((rng()-.5)*56))),i=yy*W+xx;if(canPlace(b.id,i)){build(b.id,i,12);return}}}}
+  if(b.tiles>2000&&b.b[SAM]<1+Math.floor(b.tiles/6000)&&rng()<.06&&b.gold>=costOf(b,SAM)*1.3){const mine=buildings.filter(x=>!x.dead&&x.k!==SAM&&own[x.t]===b.id);
+    if(mine.length){const c=mine[Math.floor(rng()*mine.length)].t,x=c%W,y=(c/W)|0;for(let s2=0;s2<10;s2++){const xx=Math.max(0,Math.min(W-1,x+Math.round((rng()-.5)*40))),yy=Math.max(0,Math.min(H-1,y+Math.round((rng()-.5)*40))),i=yy*W+xx;if(canPlace(b.id,i)){build(b.id,i,SAM);return}}}}
   if(b.e[12]>0&&b.b[13]<2&&rng()<.08&&b.gold>=costOf(b,13)*1.3){const ap=buildings.find(x=>ready(x)&&x.k===12&&own[x.t]===b.id);if(ap){build(b.id,ap.t,13);return}}
   if(b.e[12]>0&&rng()<DF().nukeChance*2&&b.gold>=costOf(b,14)*1.5){let tgt=null;for(const o of nat)if(o.alive&&o.id!==b.id&&angry(b,o.id)&&!allied(b.id,o.id)&&(!tgt||o.tiles>tgt.tiles))tgt=o;
     if(tgt&&borders[tgt.id].size){let idx=Math.floor(rng()*borders[tgt.id].size);for(const i of borders[tgt.id]){if(idx--<=0){build(b.id,i,14);break}}return}}
@@ -1018,7 +1056,7 @@ function botThink(b){
   if(seen.has(-1)&&rng()<(anyMad?.15:.75))target=-1;
   else{const myD=b.troops/Math.max(1,b.tiles);let best=1e9;
     const picky=!b.mega&&rng()>=DF().unprov;
-    for(const [o] of seen){if(o<0||allied(b.id,o)||(tut&&o===P))continue;const mad=angry(b,o);if(picky&&!mad)continue;const d=nat[o];const s=(d.troops/Math.max(1,d.tiles))/myD+rng()*.6+(d.bot?0:DF().pBias)-(mad?.6:0);if(s<best){best=s;target=o}}
+    for(const [o] of seen){if(o<0||allied(b.id,o)||(tut&&o===P))continue;const mad=angry(b,o);if(picky&&!mad)continue;const d=nat[o];const s=(d.troops/Math.max(1,d.tiles))/myD+rng()*.6-(b.zombie&&!d.bot?.8:0)+(d.bot?0:DF().pBias)-(mad?.6:0);if(s<best){best=s;target=o}}
     if(best>DF().thr)target=seen.has(-1)?-1:null}
   if(target===null)return;
   const send=b.troops*(DF().sendMin+rng()*DF().sendRange+(b.mega?.12:0));b.troops-=send;const f=seen.get(target);
@@ -1030,8 +1068,8 @@ function runTick(){
   simTick++;
   const list=pending.get(simTick);if(list){for(const [n,t,r,k] of list)applyInput(n,t,r,k|0);pending.delete(simTick)}
   recount();
-  for(const n of nat){if(!n.alive)continue;const m=cap(n);const bm=n.bot?DF():null;if(n.troops<m)n.troops+=(1+n.tiles*.012+n.e[3]*1.5)*(1-n.troops/m)*(bm?bm.regen:1)*(n.mega?2.2:1);
-    n.gold+=(1+n.tiles*.005+n.e[1]*.3+n.e[2]*.8+n.e[15]*3+n.e[18]*.4)*(bm?bm.gold:1)*(n.mega?2.2:1)}
+  for(const n of nat){if(!n.alive)continue;const m=cap(n);const bm=n.bot?DF():null;if(n.troops<m)n.troops+=(1+n.tiles*.012+n.e[3]*1.5)*(1-n.troops/m)*(bm?bm.regen:1)*(n.mega?2.2:1)*(n.zfac||1);
+    n.gold+=(1+n.tiles*.005+n.e[1]*.3+n.e[2]*.8+n.e[15]*3+n.e[18]*.4)*(bm?bm.gold:1)*(n.mega?2.2:1)*(n.zfac||1)}
   for(const n of nat)if(n.alive&&n.bot)botThink(n);
   attacks=attacks.filter(stepAttack);
   if(simTick%CREEP_EVERY===0)creep();
@@ -1042,6 +1080,7 @@ function runTick(){
   stepRails();
   stepRepairs();
   stepBoats();
+  stepSams();
   stepMissiles();
   for(const n of nat)if(n.alive&&n.tiles===0)kill(n.id);
   if(simTick%50===0)recordChecksum();
@@ -1056,6 +1095,12 @@ function checkEnd(){
   const alive=nat.filter(n=>n.alive);
   // after choosing Keep playing, nobody can win again: the match runs until you leave (or fall)
   if(playOn){if(!nat[P].alive&&!shownDead){shownDead=true;if(mode==='solo')return end(false,'Your last province fell.');showDead()}return}
+  if(matchZombie){const Z=nat.find(n=>n.zombie);const people=nat.filter(n=>!n.bot);
+    if(Z&&!Z.alive&&people.some(n=>n.alive))return end(true,null,false,'zombie');
+    if(Z&&Z.alive&&!people.some(n=>n.alive))return end(false,'The Zombie Horde overran everyone.');
+    if(Z&&Z.alive&&Z.tiles/totalLand>=.7)return end(false,'The Zombie Horde swallowed most of the world.');
+    if(!nat[P].alive&&!shownDead){shownDead=true;if(mode==='solo')return end(false,'The zombies overran your last province.');showDead()}
+    return}
   if(nat[P].alive&&alive.length>1&&alive.every(n=>n.id===P||allied(P,n.id)))return end(true,null,true);
   const top=alive.find(n=>n.tiles/totalLand>=.7)||(alive.length===1?alive[0]:null);
   if(top)return end(top.id===P,top.id===P?null:`${top.name} now holds most of the world.`);
@@ -1232,7 +1277,10 @@ function drawRails(){if(!rails.length)return;const step=Math.max(1,Math.round(3/
     if(x<-20||y<-20||x>vw+20||y>vh+20)continue;const o=own[r.fb.t];if(o<0)continue;const c=nat[o].rgb;
     ctx.fillStyle=`rgb(${Math.min(255,c[0]*1.25)},${Math.min(255,c[1]*1.25)},${Math.min(255,c[2]*1.25)})`;ctx.strokeStyle='#08141e';ctx.lineWidth=1.2;
     ctx.beginPath();ctx.rect(x-z*.6,y-z*.35,z*1.2,z*.7);ctx.fill();ctx.stroke()}}
-function drawBuildings(){
+function drawSamRings(){if(scale<1.5)return;ctx.save();ctx.setLineDash([6,6]);ctx.lineWidth=1.5;ctx.strokeStyle='rgba(242,193,78,.45)';
+  for(const b of buildings){if(b.k!==SAM||b.dead||bOwner(b)!==P)continue;const R=(SAM_R+10*(lvOf(b)-1))*scale,x=ox+((b.t%W)+.5)*scale,y=oy+(((b.t/W)|0)+.5)*scale;
+    if(x<-R||y<-R||x>vw+R||y>vh+R)continue;ctx.beginPath();ctx.arc(x,y,R,0,Math.PI*2);ctx.stroke()}ctx.restore()}
+function drawBuildings(){drawSamRings();
   const s=Math.max(5,Math.min(16,scale*2.4));if(scale<1.2&&buildings.length>600)return;
   for(const b of buildings){if(b.dead)continue;const o=bOwner(b);if(o<0&&b.k!==15)continue;const x=ox+((b.t%W)+.5)*scale,y=oy+(((b.t/W)|0)+.5)*scale;
     if(x<-20||y<-20||x>vw+20||y>vh+20)continue;const c=o>=0?nat[o].rgb:[150,156,160],z=b.k===15?s*1.2:s;
@@ -1258,6 +1306,8 @@ function drawIcon(g,k,x,y,s){const h=s/2;g.beginPath();
   else if(k===16){const w=.9;g.moveTo(x+h,y);g.lineTo(x+h*.2,y-h*.18);g.lineTo(x-h*.1,y-h*w);g.lineTo(x-h*.35,y-h*w);g.lineTo(x-h*.2,y-h*.18);g.lineTo(x-h*.75,y-h*.15);g.lineTo(x-h,y-h*.5);g.lineTo(x-h,y+h*.5);g.lineTo(x-h*.75,y+h*.15);g.lineTo(x-h*.2,y+h*.18);g.lineTo(x-h*.35,y+h*w);g.lineTo(x-h*.1,y+h*w);g.lineTo(x+h*.2,y+h*.18);g.closePath();g.moveTo(x+h*.15,y);g.arc(x,y,h*.15,0,Math.PI*2)}
   else if(k===12){g.rect(x-h,y+h*.2,h*2,h*.45);g.rect(x+h*.25,y-h,h*.45,h*1.2);g.rect(x+h*.05,y-h,h*.85,h*.35)}
   else if(k===13||k===14||k===15){const w=k===14?1.15:.9;g.moveTo(x+h,y);g.lineTo(x+h*.2,y-h*.18);g.lineTo(x-h*.1,y-h*w);g.lineTo(x-h*.35,y-h*w);g.lineTo(x-h*.2,y-h*.18);g.lineTo(x-h*.75,y-h*.15);g.lineTo(x-h,y-h*.5);g.lineTo(x-h,y+h*.5);g.lineTo(x-h*.75,y+h*.15);g.lineTo(x-h*.2,y+h*.18);g.lineTo(x-h*.35,y+h*w);g.lineTo(x-h*.1,y+h*w);g.lineTo(x+h*.2,y+h*.18);g.closePath()}
+  else if(k===31){g.moveTo(x-h,y+h*.75);g.lineTo(x+h,y+h*.75);g.lineTo(x+h,y+h*.45);g.lineTo(x-h,y+h*.45);g.closePath();
+    for(const sx of [-.42,.42]){const xx=x+sx*h;g.moveTo(xx-h*.16,y+h*.45);g.lineTo(xx-h*.16,y-h*.45);g.lineTo(xx,y-h*.9);g.lineTo(xx+h*.16,y-h*.45);g.lineTo(xx+h*.16,y+h*.45);g.closePath()}}
   else if(k===18){g.moveTo(x-h,y+h);g.lineTo(x-h,y-h*.1);g.lineTo(x-h*.5,y-h*.45);g.lineTo(x-h*.5,y-h*.1);g.lineTo(x,y-h*.45);g.lineTo(x,y-h*.1);g.lineTo(x+h*.35,y-h*.45);g.lineTo(x+h*.35,y-h);g.lineTo(x+h*.75,y-h);g.lineTo(x+h*.75,y-h*.1);g.lineTo(x+h,y-h*.1);g.lineTo(x+h,y+h);g.closePath()}
   else if(k===17){for(const ox2 of [-.55,0,.55]){const xx=x+ox2*h,yy=y+(ox2?h*.15:-h*.15);g.moveTo(xx-h*.18,yy+h*.7);g.lineTo(xx-h*.18,yy-h*.35);g.lineTo(xx,yy-h*.75);g.lineTo(xx+h*.18,yy-h*.35);g.lineTo(xx+h*.18,yy+h*.7);g.closePath()}}
   else if(k===7){for(let j=0;j<16;j++){const a=j*Math.PI/8,rr=j%2?h*.45:h;g.lineTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr)}g.closePath()}
@@ -1356,16 +1406,16 @@ function updateUI(){
   $('tTrack').setAttribute('aria-label',`${fmt(me.troops)} of ${fmt(cp)} troops at home, ${fmt(fight)} fighting`);
   // fronts panel: what you're sending and what's coming at you
   const nm=t=>t<0?'Unclaimed land':nat[t].name,rows=[];
-  for(const a of attacks)if(a.a===P)rows.push(['out',nm(a.t),a.troops]);
-  for(const b of boats)if(b.a===P)rows.push(['out','By sea → '+nm(own[b.path[b.path.length-1]]),b.troops]);
-  for(const q of planes)if(q.k===16&&q.a===P)rows.push(['out','By air → '+nm(own[q.dest]),q.troops]);
+  for(const a of attacks)if(a.a===P)rows.push(['out',nm(a.t),a.troops,29,a.t+1]);
+  for(const b of boats)if(b.a===P)rows.push(['out','By sea → '+nm(own[b.path[b.path.length-1]]),b.troops,30,b.uid]);
+  for(const q of planes)if(q.k===16&&q.a===P)rows.push(['out','By air → '+nm(own[q.dest]),q.troops,30,q.uid]);
   for(const q of planes)if(q.k===16&&q.a!==P&&own[q.dest]===P)rows.push(['in','Plane from '+nat[q.a].name,q.troops]);
   for(const a of attacks)if(a.t===P)rows.push(['in',nm(a.a),a.troops]);
   for(const b of boats)if(b.a!==P&&own[b.path[b.path.length-1]]===P)rows.push(['in','Boat from '+nat[b.a].name,b.troops]);
   const fp=$('fronts');
   if(!rows.length||phase!=='play')fp.hidden=true;
   else{const outR=rows.filter(r=>r[0]==='out'),inR=rows.filter(r=>r[0]==='in');let h='';
-    if(outR.length)h+='<h4>Your attacks</h4>'+outR.slice(0,5).map(r=>`<div class="row2"><span>${esc(r[1])}</span><b>${fmt(r[2])}</b></div>`).join('');
+    if(outR.length)h+='<h4>Your attacks</h4>'+outR.slice(0,5).map(r=>`<div class="row2"><span>${esc(r[1])}</span><b>${fmt(r[2])}</b><button type="button" class="fx ${r[3]===30?'boom':''}" data-k="${r[3]}" data-v="${r[4]}" title="${r[3]===29?'Bring these troops home':'Destroy it. Its troops are lost'}">${r[3]===29?'Retreat':'Self-destruct'}</button></div>`).join('');
     if(inR.length)h+='<h4>Incoming</h4>'+inR.slice(0,5).map(r=>`<div class="row2 in"><span>${esc(r[1])}</span><b>${fmt(r[2])}</b></div>`).join('');
     fp.innerHTML=h;fp.hidden=false}
   const top=nat.filter(n=>n.alive).sort((a,b)=>b.tiles-a.tiles).slice(0,5);
@@ -1426,7 +1476,7 @@ cv.addEventListener('pointermove',e=>{const tip=$('tip');if(ptrs.size){tip.hidde
 cv.addEventListener('pointerleave',()=>$('tip').hidden=true);
 
 // ---------- build bar: drag an icon onto the map to place that building ----------
-const BAR_KINDS=[1,2,3,4,5,18,8,12,15];let dragK=0,dragTile=-1;
+const BAR_KINDS=[1,2,3,4,5,SAM,18,8,12,15];let dragK=0,dragTile=-1;
 function makeBuildBar(){const bar=$('bbar');bar.innerHTML='';
   for(const k of BAR_KINDS){const el=document.createElement('button');el.type='button';el.className='bslot';el.dataset.k=k;el.title=`${KINDS[k].name}: ${KINDS[k].desc}. Drag onto the map to build.`;
     el.setAttribute('aria-label',KINDS[k].name+'. Drag onto the map to build.');
@@ -1458,11 +1508,13 @@ function openBuild(cx0,cy0){
   const head=document.createElement('div');head.className='bhead';head.innerHTML=`<span>${mine?'Build':sea?'Sea':foe>=0?esc(nat[foe].name):'Unclaimed land'}</span><b>${fmt(me.gold)} gold</b>`;m.append(head);
   if(foe>=0){const isAlly=allied(P,foe),asked=me.req[foe]>simTick,dip=document.createElement('div');dip.className='dip';
     const act=(label,k,r=0,danger=false,dis=false)=>{const b=document.createElement('button');b.type='button';b.textContent=label;if(danger)b.className='danger';b.disabled=dis;b.onclick=()=>{order(foe,r,k);closeBuild()};dip.append(b)};
-    if(isAlly){act(`Send gold (${fmt(Math.floor(me.gold*.25))})`,24,0,false,me.gold<4);act(`Send troops (${ratio()}%)`,25,ratio(),false,me.troops*ratio()/100<5);act('Break alliance',23,0,true)}
+    if(matchNoAlly&&!isAlly){const p=document.createElement('p');p.className='bnote';p.textContent=nat[foe].zombie?'The horde can’t be reasoned with.':'Alliances are off in this match.';dip.append(p)}
+    else if(nat[foe].zombie){const p=document.createElement('p');p.className='bnote';p.textContent='The horde can’t be reasoned with.';dip.append(p)}
+    else if(isAlly){act(`Send gold (${fmt(Math.floor(me.gold*.25))})`,24,0,false,me.gold<4);act(`Send troops (${ratio()}%)`,25,ratio(),false,me.troops*ratio()/100<5);if(!teammates(P,foe))act('Break alliance',23,0,true)}
     else if(asked){act('Accept alliance',21);act('Decline',22)}
     else act('Propose alliance',20);
     if(mode==='host'&&H_&&foe>0&&foe<H_.players.length&&!H_.kicked.includes(H_.players[foe].p)){const kb=document.createElement('button');kb.type='button';kb.className='danger';kb.textContent='Kick player';kb.onclick=()=>{kickPlayer(H_.players[foe].p);closeBuild()};dip.append(kb)}
-    m.append(dip);if(isAlly){const p=document.createElement('p');p.className='bnote ok';p.textContent='Allies. You can’t attack each other, and allied trade pays 50% more.';m.append(p)}}
+    m.append(dip);if(isAlly){const p=document.createElement('p');p.className='bnote ok';p.textContent=teammates(P,foe)?'Teammate. You fight the horde together and can’t attack each other.':'Allies. You can’t attack each other, and allied trade pays 50% more.';m.append(p)}}
   const note=t=>{const p=document.createElement('p');p.className='bnote';p.textContent=t;m.append(p)};
   if(mine&&scorch[i]){const job=repairing(i);const rb=document.createElement('button');rb.type='button';rb.className='upg';rb.setAttribute('role','menuitem');
     const ic=document.createElement('canvas');ic.width=ic.height=28;const g=ic.getContext('2d');g.fillStyle='#7bd88f';g.strokeStyle='#08141e';g.lineWidth=2;drawIcon(g,4,14,14,18);
@@ -1481,7 +1533,7 @@ function openBuild(cx0,cy0){
     up.onclick=()=>{order(near.t,0,19);toast(`Upgrading to level ${lv+1}. It takes ${Math.round(bt(near.k)*.6/10)} s.`);closeBuild()};m.append(up)}
   if(mine&&!ok&&!near&&!scorch[i])note('Too close to another building for new buildings. Pick a spot at least 8 tiles away.');
   const coastal=mine&&shipSpot(P,i)>=0,hasPort=!!nearestPort(P,i),hasAir=me.e[12]>0,hasSilo=me.e[5]>0,hasSilo3=nearestSilo(P,i,MIRV_SILO_LV)>=0,rig=sea&&rigOk(P,i),
-    list=mine?[1,2,3,4,5,18,12].concat(coastal?[8]:[],[13]):sea?[9,6,10,15]:allied(P,foe)?[]:[16,14,7,11,17];
+    list=mine?[1,2,3,4,5,SAM,18,12].concat(coastal?[8]:[],[13]):sea?[9,6,10,15]:allied(P,foe)?[]:[16,14,7,11,17];
   if(mine&&!coastal)note('Right-click your land near the sea to build a port.');
   if(mine&&!hasAir)note('Fighters need a finished airport.');
   if(sea&&!hasPort)note('Warships need a finished port. They sail out from it to this spot.');
@@ -1677,7 +1729,7 @@ function kickPlayer(peer){if(mode!=='host'||!H_||!peer||H_.kicked.includes(peer)
   if(H_.phase==='lobby'){H_.players=H_.players.filter(x=>x.p!==peer);announce({code:H_.code,n:nick,c:H_.players.length});renderRoomLobby()}
   publishHost();toast(H_.phase==='lobby'?`${name} was kicked.`:`${name} was kicked. Their realm stands idle.`)}
 function publishHost(){if(!game||!H_)return;
-  game.presence({n:nick,g:{phase:H_.phase,diff,map:H_.map,type:H_.type,seed:H_.seed,bots:H_.bots,players:H_.players,pick:H_.picking?1:0,pickLeft:H_.picking?Math.max(0,Math.ceil((H_.pickEnd-Date.now())/1000)):0,picks:H_.picking?H_.picks:null,rc:realCountries?1:0,more:H_.more?1:0,kick:H_.kicked,tick:simTick,log:H_.log,ck:H_.ck}}).catch(()=>{})}
+  game.presence({n:nick,g:{phase:H_.phase,diff,map:H_.map,type:H_.type,seed:H_.seed,bots:H_.bots,players:H_.players,na:noAlly?1:0,zm:zombieMode?1:0,pick:H_.picking?1:0,pickLeft:H_.picking?Math.max(0,Math.ceil((H_.pickEnd-Date.now())/1000)):0,picks:H_.picking?H_.picks:null,rc:realCountries?1:0,more:H_.more?1:0,kick:H_.kicked,tick:simTick,log:H_.log,ck:H_.ck}}).catch(()=>{})}
 function newCode(){const a='abcdefghjkmnpqrstuvwxyz23456789';let s='';for(let i=0;i<5;i++)s+=a[Math.floor(Math.random()*a.length)];return s}
 
 async function hostGame(){
@@ -1721,7 +1773,7 @@ function onGamePeers(ch){
     }else{
       for(const p of peers){const idx=H_.players.findIndex(x=>x.p===p.peer);if(idx<1||H_.kicked.includes(p.peer))continue;
         const acts=p.presence?.acts;if(!Array.isArray(acts))continue;
-        for(const a of acts){if(!Array.isArray(a))continue;const [s,tile,r,kk]=a;const k=Number.isInteger(kk)&&((kk>=0&&kk<=19)||(kk>=20&&kk<=28))?kk:0;
+        for(const a of acts){if(!Array.isArray(a))continue;const [s,tile,r,kk]=a;const k=Number.isInteger(kk)&&((kk>=0&&kk<=19)||(kk>=20&&kk<=31))?kk:0;
           if(!Number.isInteger(s)||s<=(H_.lastSeq[p.peer]||0))continue;H_.lastSeq[p.peer]=s;
           if(k===27){if(H_.picking&&Number.isInteger(tile)&&!spawnProblem(tile,Object.entries(H_.picks).filter(([q])=>+q!==idx).map(([,t])=>t))){H_.picks[idx]=tile;refreshPickView();publishHost()}continue}
           if(k===28){if(phase==='over'&&!playOn){keepPlaying();toast(`${String(H_.players[idx].n).slice(0,16)} kept the match going.`)}continue}
@@ -1743,7 +1795,7 @@ function onGamePeers(ch){
       if(phase!=='play'&&phase!=='over'&&phase!=='spawn'){
         const idx=Array.isArray(g.players)?g.players.findIndex(x=>x.p===myPeer):-1;
         if(idx<0){leaveOnline();showMenu();return toast("That game already started without you.")}
-        diff=[0,1,2].includes(g.diff)?g.diff:1;realCountries=!!g.rc;
+        diff=[0,1,2].includes(g.diff)?g.diff:1;realCountries=!!g.rc;noAlly=!!g.na;zombieMode=!!g.zm;
         startOnline(g.seed|0,mapById(g.type).id==='random'?'pangaea':mapById(g.type).id,g.players.map(x=>({n:String(x.n).slice(0,16),c:String(x.c||'')})),Math.max(0,Math.min(400,g.bots|0)),idx);
       }
       if(g.more&&phase==='over'&&!playOn){resumeOver();toast('The host kept the match going.')}
@@ -1772,6 +1824,11 @@ function hostStart(){
 }
 
 // ---------- screens ----------
+function optToggles(){return `<label class="chk"><input type="checkbox" id="noAllyC" ${noAlly?'checked':''}><span><b>No alliances</b><small>Nobody can make alliances. Every realm fights alone.</small></span></label>
+  <label class="chk"><input type="checkbox" id="zombieC" ${zombieMode?'checked':''}><span><b>Zombie mode</b><small>Team up with your friends against a huge Zombie Horde. It grows stronger for every player. Destroy it to win.</small></span></label>`}
+function wireOpts(onSet){const a=$('noAllyC'),z=$('zombieC');
+  if(a)a.onchange=()=>{noAlly=a.checked;try{localStorage.setItem('frontwake-noally',noAlly?'1':'0')}catch{}onSet&&onSet()};
+  if(z)z.onchange=()=>{zombieMode=z.checked;try{localStorage.setItem('frontwake-zombie',zombieMode?'1':'0')}catch{}onSet&&onSet()}}
 function realToggle(){return `<label class="chk"><input type="checkbox" id="realC" ${realCountries?'checked':''}><span><b>Real countries</b><small>On real-world maps, rivals are real countries that start where they began in history</small></span></label>`}
 function wireReal(onSet){const c=$('realC');if(!c)return;c.onchange=()=>{realCountries=c.checked;try{localStorage.setItem('frontwake-realc',realCountries?'1':'0')}catch{}onSet&&onSet()}}
 function diffPicker(){return `<div class="field"><h2>Difficulty</h2><div class="diffs" role="radiogroup" aria-label="Difficulty">${DIFFS.map((d,k)=>`<button type="button" role="radio" class="diff" data-d="${k}" aria-checked="${k===diff}"><b>${d.name}</b><span>${d.blurb}</span></button>`).join('')}</div></div>`}
@@ -1913,7 +1970,7 @@ const TUT=[
    'Oil rigs go on the sea near your land. They pay a lot of gold but take 90 seconds to build, and an enemy warship nearby can seize one.']},
  {t:'Navy and air force',icons:[9,6,10,13],p:['Right-click the sea to build warships. You need a finished port, and the ship sails from it to the spot you picked.',
    'Gunboats are fast and cheap, Frigates are all-rounders, and Battleships hit hardest from far away. Fighters from your airport shoot down enemy planes.']},
- {t:'Bombs',icons:[5,14,7,11,17],p:['A Missile Silo lets you launch an Atom Bomb, a far bigger Hydrogen Bomb, or a MIRV that needs a level 3 silo and splits into warheads spread across a whole realm’s land. Bombed land becomes nuclear wasteland: anyone can take it, but nothing can be built there until its owner pays 40,000 gold to repair it. Everything in the blast is wiped out.',
+ {t:'Bombs',icons:[5,14,7,11,17,31],p:['A Missile Silo lets you launch an Atom Bomb, a far bigger Hydrogen Bomb, or a MIRV that needs a level 3 silo and splits into warheads spread across a whole realm’s land. A SAM Launcher shoots down enemy bombs, MIRV warheads, bombers and troop planes inside its dashed circle, one every few seconds. Bombed land becomes nuclear wasteland: anyone can take it, but nothing can be built there until its owner pays 40,000 gold to repair it. Everything in the blast is wiped out.',
    'With an airport, a Bomber Strike flattens buildings and troops in a smaller area without taking land.']},
  {t:'Alliances and trading',icons:[],p:['Right-click another realm to propose an alliance. Allies can’t attack each other, defend each other, and earn 50% more from trade together.',
    'Right-click an ally to send them gold or troops, or to break the alliance. Bots remember who attacked them, so pick your fights carefully.']},
@@ -1939,6 +1996,7 @@ function showSolo(){
   ${diffPicker()}
   ${botSlider(1,'Rivals')}
   ${realToggle()}
+  ${optToggles()}
   <p class="note" id="botwarn" hidden>Hundreds of rivals make a crowded, chaotic map and can run slowly on older phones.</p>
   <button class="primary" id="go">Choose landing</button>
   <button class="link" id="back">← Main menu</button>`);
@@ -1946,8 +2004,10 @@ function showSolo(){
   $('newmap').onclick=()=>previewMap('random');
   const warn=()=>$('botwarn').hidden=botCount<150;wireBots(warn);warn();
   $('back').onclick=showMenu;$('backTop').onclick=showMenu;
-  wireDiff();wireReal();
-  $('go').onclick=()=>{try{window.fwTrack&&fwTrack('start_match',{mode:'solo',map:selectedMap,bots:botCount})}catch{}for(let b=0;b<botCount;b++)addBot(b);maybeMiroslaw();placeRest(P);shownDead=false;$('banner').textContent='Rivals have landed. Tap open land to pick your spot · drag to pan';
+  wireDiff();wireReal();wireOpts();
+  $('go').onclick=()=>{try{window.fwTrack&&fwTrack('start_match',{mode:'solo',map:selectedMap,bots:botCount})}catch{}
+    const M=mapById(mapType);useCountries=realCountries&&!!M.real;if(useCountries)pickCountries(M);else ctryList=[];matchNoAlly=noAlly;matchZombie=zombieMode;
+    for(let b=0;b<botCount;b++)addBot(b);maybeMiroslaw();maybeZombie();placeRest(P);shownDead=false;$('banner').textContent='Rivals have landed. Tap open land to pick your spot · drag to pan';
     $('overlay').hidden=true;phase='spawn';screen='game';$('banner').hidden=false;$('randSpot').hidden=false;$('exitBtn').hidden=false;$('modeTag').hidden=false;$('modeTag').textContent='SOLO · '+DF().name.toUpperCase()};
 }
 function showOnline(){screen='online';renderOnline()}
@@ -2011,11 +2071,12 @@ function renderRoomLobby(){
   ${diffPicker()}
   ${botSlider(0,'Bot realms')}
   ${realToggle()}
+  ${optToggles()}
   <button class="primary" id="start">Start match</button>
   <button class="link" id="leave">← Leave</button>`);
   $('plist').append(playerList(H_.players,'host'));
   $('maplist').append(mapList(H_.map,id=>{H_.map=id;selectedMap=id;previewMap(id);publishHost()}));
-  wireDiff(publishHost);wireReal(publishHost);
+  wireDiff(publishHost);wireReal(publishHost);wireOpts(publishHost);
   let bt=0;wireBots(()=>{H_.bots=botCount;clearTimeout(bt);bt=setTimeout(publishHost,250)});H_.bots=botCount;
   $('start').onclick=()=>{if(H_.players.length+botCount<2)return toast("Add a bot or wait for a friend.");hostStart()};
   $('leave').onclick=showMenu;
@@ -2025,7 +2086,7 @@ function renderWaiting(code){screen='waiting';
 function renderRoomLobbyClient(g){
   screen='roomlobby';const players=Array.isArray(g.players)?g.players:[];
   showCard(`<h1>Game <span class="code">${esc(clientCode)}</span></h1>
-  <p>Waiting for the host to start. Map: ${esc(mapById(g.map).name)}. Difficulty: ${DIFFS[[0,1,2].includes(g.diff)?g.diff:1].name}. Bot realms: ${Math.max(0,g.bots|0)}.</p>
+  <p>Waiting for the host to start. Map: ${esc(mapById(g.map).name)}. Difficulty: ${DIFFS[[0,1,2].includes(g.diff)?g.diff:1].name}. Bot realms: ${Math.max(0,g.bots|0)}.${g.zm?' Zombie mode.':''}${g.na?' No alliances.':''}</p>
   <div class="field"><h2>Players · ${players.length}/8</h2><div id="plist"></div></div>
   <button class="link" id="leave">← Leave</button>`);
   $('plist').append(playerList(players,'host'));$('leave').onclick=showMenu;
@@ -2035,14 +2096,14 @@ function showDead(){
   <div class="row"><button class="primary" id="watch">Keep watching</button><button id="toMenu">Leave match</button></div>`);
   $('watch').onclick=()=>$('overlay').hidden=true;$('toMenu').onclick=showMenu;
 }
-function end(won,why,byAlliance){
+function end(won,why,byAlliance,how){
   const canMore=!!nat[P]?.alive&&((mode==='solo'&&won)||mode==='host'||mode==='client');lastWinByAlliance=!!(won&&byAlliance);
   if(mode==='solo')running=false;
   phase='over';const me=nat[P];
   if(mode==='host'){running=false;publishHost()}
   if(mode==='client')running=false;
   showCard(`<h1>${won?'Victory':'<span style="color:var(--danger)">Defeated</span>'}</h1>
-  <p>${won?(byAlliance?`Every realm left standing is your ally. Your alliance rules the world after ${Math.round(simTick/10)} seconds.`:`You hold ${(me.tiles/totalLand*100).toFixed(0)}% of the world after ${Math.round(simTick/10)} seconds.`):esc(why)}</p>
+  <p>${won&&how==='zombie'?`The Zombie Horde is destroyed after ${Math.round(simTick/10)} seconds. ${nat.filter(n=>!n.bot).length>1?'You saved the world together.':'You saved the world.'}`:won?(byAlliance?`Every realm left standing is your ally. Your alliance rules the world after ${Math.round(simTick/10)} seconds.`:`You hold ${(me.tiles/totalLand*100).toFixed(0)}% of the world after ${Math.round(simTick/10)} seconds.`):esc(why)}</p>
   ${canMore?`<button class="primary" id="more">Keep playing</button><p class="note">${mode!=='solo'?'Everyone in the match keeps going. ':''}The map stays as it is and the match won't end again until you leave.${byAlliance&&won?' To fight on, right-click an ally and break the alliance.':''}</p>`:''}
   <div class="row">${mode==='solo'?`<button class="${canMore?'':'primary'}" id="again">Play again</button>`:''}<button id="toMenu" class="${mode==='solo'||canMore?'':'primary'}">Main menu</button></div>`);
   if($('again'))$('again').onclick=showSolo;$('toMenu').onclick=showMenu;
@@ -2059,6 +2120,8 @@ function resumeOver(){playOn=true;phase='play';running=true;$('overlay').hidden=
 
 // ---------- loop ----------
 $('randSpot').onclick=randomSpot;
+$('fronts').addEventListener('click',e=>{const b=e.target.closest('button.fx');if(!b||phase!=='play')return;const k=+b.dataset.k,v=+b.dataset.v;if(!Number.isInteger(v))return;
+  order(v,0,k);b.disabled=true;toast(k===29?'Retreating…':'Self-destruct sent.')});
 new ResizeObserver(resize).observe(cv);resize();
 previewMap(selectedMap);showMenu();
 let last=performance.now(),acc=0;
